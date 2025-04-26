@@ -23,7 +23,7 @@ using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(AutomatedTasksMod.Mod), "AutomatedTasksMod", "0.1.0", "Robert Rioja")]
+[assembly: MelonInfo(typeof(AutomatedTasksMod.Mod), "AutomatedTasksMod", "0.1.1", "Robert Rioja")]
 [assembly: MelonColor(1, 255, 20, 147)]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
@@ -125,7 +125,7 @@ namespace AutomatedTasksMod {
 
 				callbackError = false;
 
-				yield return SinusoidalLerpRotationCoroutine(soil.transform, new Vector3(soil.transform.localEulerAngles.x, soil.transform.localEulerAngles.y, soil.transform.localEulerAngles.z - 180), 2, () => callbackError = true);
+				yield return SinusoidalLerpRotationCoroutine(soil.transform, new Vector3(soil.transform.localEulerAngles.x, soil.transform.localEulerAngles.y, soil.transform.localEulerAngles.z - 180), 1.5f, () => callbackError = true);
 
 				if(callbackError) {
 					Melon<Mod>.Logger.Msg("Can't find soil to rotate - probably exited task");
@@ -137,34 +137,42 @@ namespace AutomatedTasksMod {
 
 			static System.Collections.IEnumerator AutomateSowingSeedCoroutine(FunctionalSeed seed) {
 				Pot pot;
+				Vector3 moveToPosition;
 				bool callbackError;
 
 				Melon<Mod>.Logger.Msg("Sow seed task started");
+				Melon<Mod>.Logger.Msg("Moving and rotating seed vial");
 
-				if(NullCheck(seed.Cap, "Can't find the seed the player is using"))
+				if(NullCheck(seed.Vial, "Can't find seed vial - probably exited task"))
+					yield break;
+
+				moveToPosition = seed.Vial.transform.position;
+				moveToPosition.y -= 0.1f;
+
+				seed.Vial.transform.localEulerAngles = Vector3.zero;
+
+				callbackError = false;
+
+				yield return SinusoidalLerpPositionAndRotationCoroutine(seed.Vial.transform, moveToPosition, new Vector3(seed.Vial.transform.localEulerAngles.x + 180, seed.Vial.transform.localEulerAngles.y, seed.Vial.transform.localEulerAngles.z), 1.5f, () => callbackError = true);
+
+				if(callbackError) {
+					Melon<Mod>.Logger.Msg("Can't find seed vial to move and rotate - probably exited task");
+					yield break;
+				}
+
+				yield return new WaitForSeconds(0.2f);
+
+				if(NullCheck([seed, seed.Cap], "Can't find seed cap - probably exited task"))
 					yield break;
 
 				Melon<Mod>.Logger.Msg("Popping seed cap");
 				seed.Cap.Pop();
 
-				yield return new WaitForSeconds(0.2f);
-
-				Melon<Mod>.Logger.Msg("Rotating seed");
-
-				callbackError = false;
-
-				yield return SinusoidalLerpRotationCoroutine(seed.transform, new Vector3(seed.transform.localEulerAngles.x + 180, seed.transform.localEulerAngles.y, seed.transform.localEulerAngles.z), 2, () => callbackError = true);
-
-				if(callbackError) {
-					Melon<Mod>.Logger.Msg("Can't find seed to rotate - probably exited task");
-					yield break;
-				}
-
 				yield return new WaitForSeconds(0.5f);
 
 				pot = GameObject.FindObjectsOfType<Pot>().FirstOrDefault(p => p.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? false);
 
-				if(NullCheck(pot, "Couldn't find the pot the player is using")) {
+				if(NullCheck(pot, "Can't find the pot the player is using")) {
 					yield break;
 				}
 
@@ -202,7 +210,7 @@ namespace AutomatedTasksMod {
 
 				callbackError = false;
 
-				yield return SinusoidalLerpRotationCoroutine(wateringCan.transform, new Vector3(wateringCan.transform.localEulerAngles.x, wateringCan.transform.localEulerAngles.y, wateringCan.transform.localEulerAngles.z - 90), 1, () => callbackError = true);
+				yield return SinusoidalLerpRotationCoroutine(wateringCan.transform, new Vector3(wateringCan.transform.localEulerAngles.x, wateringCan.transform.localEulerAngles.y, wateringCan.transform.localEulerAngles.z - 90), 0.8f, () => callbackError = true);
 
 				if(callbackError) {
 					Melon<Mod>.Logger.Msg("Can't find watering can to rotate - probably exited task");
@@ -425,11 +433,15 @@ namespace AutomatedTasksMod {
 				FunctionalProduct product;
 				FunctionalPackaging packaging;
 				Vector3 moveToPosition;
+				bool stepComplete;
 				bool callbackError;
+				float time;
 
 				Melon<Mod>.Logger.Msg("Packaging task started");
 
 				yield return new WaitForSeconds(0.5f);
+
+				int productsInPackaging;
 
 				//We can only ever have 20 products so this is a failsafe
 				for(int i = 0; i < 20; i++) {
@@ -466,6 +478,8 @@ namespace AutomatedTasksMod {
 					moveToPosition = packaging.gameObject.transform.position;
 					moveToPosition.y += 0.3f;
 
+					productsInPackaging = packaging.PackedProducts.Count;
+
 					callbackError = false;
 
 					yield return SinusoidalLerpPositionCoroutine(product.gameObject.transform, moveToPosition, 0.5f, () => callbackError = true);
@@ -475,15 +489,36 @@ namespace AutomatedTasksMod {
 						yield break;
 					}
 
-					yield return new WaitForSeconds(0.4f);
+					Melon<Mod>.Logger.Msg("Updating packaging's contents");
 
-					if(NullCheck(packaging, "Can't find packaging - probably exited task"))
+					stepComplete = false;
+					time = 0;
+
+					//Up to 3 seconds
+					while(time < 3) {
+						if(NullCheck(packaging, "Can't find packaging - probably exited task"))
+							yield break;
+
+						if(packaging.PackedProducts.Count > productsInPackaging) {
+							if(packaging.IsFull) {
+								Melon<Mod>.Logger.Msg("Packaging is full - closing packaging");
+								packaging.Seal();
+							} else {
+								Melon<Mod>.Logger.Msg("Packaging's contents increased");
+							}
+
+							stepComplete = true;
+							break;
+						}
+
+						time += Time.deltaTime;
+
+						yield return null;
+					}
+
+					if(!stepComplete) {
+						Melon<Mod>.Logger.Msg("Packaging's contents didn't increase after 3 seconds");
 						yield break;
-
-					if(packaging.IsFull) {
-						Melon<Mod>.Logger.Msg("Closing packaging");
-
-						packaging.Seal();
 					}
 
 					yield return new WaitForSeconds(0.2f);
@@ -531,8 +566,13 @@ namespace AutomatedTasksMod {
 				MixingStation mixingStation;
 				Transform product;
 				IngredientPiece productPiece;
+				Beaker productBeaker;
 				Vector3 moveToPosition;
+				Vector3 moveBackToPosition;
+				Vector3 rotateToAngles;
+				bool stepComplete;
 				bool callbackError;
+				float time;
 
 				Melon<Mod>.Logger.Msg("Mixing task started");
 
@@ -571,28 +611,101 @@ namespace AutomatedTasksMod {
 						yield break;
 
 					productPiece = product.GetComponentInChildren<IngredientPiece>();
+					productBeaker = product.GetComponentInChildren<Beaker>();
 
-					if(NullCheck(productPiece, "Can't find product piece - probably exited task"))
-						yield break;
+					if(!NullCheck(productPiece)) {
+						moveToPosition = mixingStation.BowlFillable.transform.position;
+						moveToPosition.y += 0.3f;
 
-					moveToPosition = mixingStation.BowlFillable.transform.position;
-					moveToPosition.y += 0.3f;
+						Melon<Mod>.Logger.Msg("Moving product to mixer");
 
-					Melon<Mod>.Logger.Msg("Moving product to mixer");
+						callbackError = false;
 
-					callbackError = false;
+						yield return SinusoidalLerpPositionCoroutine(productPiece.transform, moveToPosition, 0.5f, () => callbackError = true);
 
-					yield return SinusoidalLerpPositionCoroutine(productPiece.transform, moveToPosition, 0.5f, () => callbackError = true);
+						if(callbackError) {
+							Melon<Mod>.Logger.Msg("Can't find product piece to move - probably exited task");
+							yield break;
+						}
 
-					if(callbackError) {
-						Melon<Mod>.Logger.Msg("Can't find product piece to move - probably exited task");
+						yield return new WaitForSeconds(0.3f);
+					} else if(!NullCheck(productBeaker)) {
+						Melon<Mod>.Logger.Msg("Moving beaker to mixer");
+
+						moveBackToPosition = productBeaker.transform.position;
+
+						moveToPosition = productBeaker.transform.position.Between(mixingStation.BowlFillable.transform.position, 0.3f);
+						moveToPosition.y += 0.35f;
+
+						callbackError = false;
+
+						yield return SinusoidalLerpPositionCoroutine(productBeaker.transform, moveToPosition, 0.8f, () => callbackError = true);
+
+						if(callbackError) {
+							Melon<Mod>.Logger.Msg("Can't find beaker - probably exited task");
+							yield break;
+						}
+
+						Melon<Mod>.Logger.Msg("Rotating beaker");
+
+						productBeaker.transform.localEulerAngles = Vector3.zero;
+						rotateToAngles = new Vector3(productBeaker.transform.localEulerAngles.x, productBeaker.transform.localEulerAngles.x, productBeaker.transform.localEulerAngles.y + 90);
+
+						yield return SinusoidalLerpPositionAndRotationCoroutine(productBeaker.transform, moveToPosition, rotateToAngles, 2f, () => callbackError = true);
+
+						if(callbackError) {
+							Melon<Mod>.Logger.Msg("Can't find beaker to move and rotate - probably exited task");
+							yield break;
+						}
+
+						Melon<Mod>.Logger.Msg("Holding beaker");
+
+						stepComplete = false;
+						time = 0;
+
+						//Up to 5 seconds
+						while(time < 5) {
+							if(NullCheck(productBeaker, "Can't find beaker - probably exited task"))
+								yield break;
+
+							if(productBeaker.Pourable.LiquidLevel == 0) {
+								Melon<Mod>.Logger.Msg("Done pouring beaker");
+								stepComplete = true;
+								break;
+							}
+
+							productBeaker.transform.position = moveToPosition;
+							productBeaker.transform.localEulerAngles = rotateToAngles;
+
+							time += Time.deltaTime;
+
+							yield return null;
+						}
+
+						if(!stepComplete) {
+							Melon<Mod>.Logger.Msg("Pouring beaker didn't complete after 5 seconds");
+							yield break;
+						}
+
+						Melon<Mod>.Logger.Msg("Moving beaker out of the way");
+
+						callbackError = false;
+
+						yield return SinusoidalLerpPositionAndRotationCoroutine(productBeaker.transform, moveBackToPosition, Vector3.zero, 0.8f, () => callbackError = true);
+
+						if(callbackError) {
+							Melon<Mod>.Logger.Msg("Can't find beaker to move and rotate - probably exited task");
+							yield break;
+						}
+
+						yield return new WaitForSeconds(0.3f);
+					} else {
+						Melon<Mod>.Logger.Msg("Can't find product piece or beaker - probably exited task");
 						yield break;
 					}
-
-					yield return new WaitForSeconds(0.3f);
 				}
 
-				yield return new WaitForSeconds(0.2f);
+				yield return new WaitForSeconds(0.5f);
 
 				if(NullCheck([mixingStation, mixingStation.StartButton], "Can't find mixing station start button - probably exited task"))
 					yield break;
@@ -709,8 +822,8 @@ namespace AutomatedTasksMod {
 
 					Melon<Mod>.Logger.Msg("Holding pourable");
 
-					time = 0;
 					stepComplete = false;
+					time = 0;
 
 					//Up to 3 seconds
 					while(time < 3) {
@@ -759,9 +872,9 @@ namespace AutomatedTasksMod {
 				if(NullCheck(stirringRod, "Can't find stirring rod - probably exited task"))
 					yield break;
 
+				stepComplete = false;
 				time = 0;
 				float maxTime = 8;
-				stepComplete = false;
 
 				//Up to 8 seconds
 				while(maxTime > 0) {
@@ -845,8 +958,6 @@ namespace AutomatedTasksMod {
 				if(NullCheck([chemistryStation, chemistryStation.LabStand, chemistryStation.LabStand.Funnel], "Can't find lab stand - probably exited task"))
 					yield break;
 
-				moveBackToPosition = chemistryStation.LabStand.Funnel.transform.position;
-
 				moveToPosition = beaker.transform.position.Between(chemistryStation.LabStand.Funnel.transform.position, 0.3f);
 				moveToPosition.y += 0.4f;
 
@@ -873,8 +984,8 @@ namespace AutomatedTasksMod {
 
 				Melon<Mod>.Logger.Msg("Holding beaker");
 
-				time = 0;
 				stepComplete = false;
+				time = 0;
 
 				//Up to 5 seconds
 				while(time < 5) {
@@ -929,8 +1040,8 @@ namespace AutomatedTasksMod {
 
 				Melon<Mod>.Logger.Msg("Handling burner");
 
-				time = 0;
 				stepComplete = false;
+				time = 0;
 
 				//Up to 8 seconds
 				while(time < 8) {
