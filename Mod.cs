@@ -23,7 +23,7 @@ using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(AutomatedTasksMod.Mod), "AutomatedTasksMod", "0.1.1", "Robert Rioja")]
+[assembly: MelonInfo(typeof(AutomatedTasksMod.Mod), "AutomatedTasksMod", "0.2.0", "Robert Rioja")]
 [assembly: MelonColor(1, 255, 20, 147)]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
@@ -425,10 +425,10 @@ namespace AutomatedTasksMod {
 		[HarmonyPatch(typeof(PackagingStation), "StartTask")]
 		public static class PackagingStationPatch {
 			private static void Postfix(PackagingStation __instance) {
-				MelonCoroutines.Start(AutomatePackingCoroutine(__instance));
+				MelonCoroutines.Start(AutomatePackagingStationCoroutine(__instance));
 			}
 
-			static System.Collections.IEnumerator AutomatePackingCoroutine(PackagingStation packagingStation) {
+			static System.Collections.IEnumerator AutomatePackagingStationCoroutine(PackagingStation packagingStation) {
 				int numProduct, numBaggies;
 				FunctionalProduct product;
 				FunctionalPackaging packaging;
@@ -437,7 +437,7 @@ namespace AutomatedTasksMod {
 				bool callbackError;
 				float time;
 
-				Melon<Mod>.Logger.Msg("Packaging task started");
+				Melon<Mod>.Logger.Msg("Packaging station task started");
 
 				yield return new WaitForSeconds(0.5f);
 
@@ -559,10 +559,10 @@ namespace AutomatedTasksMod {
 		[HarmonyPatch(typeof(MixingStationCanvas), "BeginButtonPressed")]
 		public static class MixingStationCanvasPatch {
 			private static void Postfix(MixingStationCanvas __instance) {
-				MelonCoroutines.Start(AutomateMixingCoroutine());
+				MelonCoroutines.Start(AutomateMixingStationCoroutine());
 			}
 
-			static System.Collections.IEnumerator AutomateMixingCoroutine() {
+			static System.Collections.IEnumerator AutomateMixingStationCoroutine() {
 				MixingStation mixingStation;
 				Transform product;
 				IngredientPiece productPiece;
@@ -574,7 +574,7 @@ namespace AutomatedTasksMod {
 				bool callbackError;
 				float time;
 
-				Melon<Mod>.Logger.Msg("Mixing task started");
+				Melon<Mod>.Logger.Msg("Mixing station task started");
 
 				yield return new WaitForSeconds(0.5f);
 
@@ -1088,7 +1088,7 @@ namespace AutomatedTasksMod {
 				LabOvenButton labOvenButton;
 				bool callbackError;
 
-				Melon<Mod>.Logger.Msg("LabOven task started");
+				Melon<Mod>.Logger.Msg("Lab oven task started");
 
 				yield return new WaitForSeconds(0.5f);
 
@@ -1167,6 +1167,139 @@ namespace AutomatedTasksMod {
 					labOvenButton.Press(new RaycastHit());
 				} else {
 					//Couldn't figure out how to automate smashing with the hammer :(
+				}
+			}
+		}
+
+		[HarmonyPatch(typeof(PackagingStationMk2), "StartTask")]
+		public static class PackagingStationMk2Patch {
+			private static void Postfix(PackagingStationMk2 __instance) {
+				MelonCoroutines.Start(AutomatePackagingStationMk2Coroutine(__instance));
+			}
+
+			static System.Collections.IEnumerator AutomatePackagingStationMk2Coroutine(PackagingStationMk2 packagingStationMk2) {
+				PackagingTool packagingTool;
+				FunctionalPackaging functionalPackaging = null;
+				int maxProductsInPackaging;
+				int numFinishedPackaging;
+				bool stepComplete;
+				bool stepComplete2;
+				float time;
+
+				Melon<Mod>.Logger.Msg("Packaging station MK2 task started");
+
+				yield return new WaitForSeconds(0.5f);
+
+				if(NullCheck(packagingStationMk2, "Can't find packaging station MK2 - probably exited task"))
+					yield break;
+
+				packagingTool = packagingStationMk2.GetComponentInChildren<PackagingTool>();
+
+				if(NullCheck([packagingTool, packagingTool.PackagingContainer], "Can't find packaging tool - probably exited task"))
+					yield break;
+
+				stepComplete = false;
+
+				//We can only ever have up to 20 products so this is a failsafe
+				for(int i = 0; i < 20; i++) {
+					Melon<Mod>.Logger.Msg("Dropping product");
+
+					packagingTool.DropProduct();
+
+					Melon<Mod>.Logger.Msg("Waiting for packaging's contents to update");
+
+					maxProductsInPackaging = functionalPackaging?.GetComponentsInChildren<FunctionalProduct>().Length ?? 0;
+
+					stepComplete2 = false;
+					time = 0;
+
+					//Up to 3 seconds
+					while(time < 3) {
+						if(NullCheck([packagingTool, packagingTool.PackagingContainer], "Can't find packaging tool - probably exited task"))
+							yield break;
+
+						functionalPackaging = packagingTool.PackagingContainer.GetComponentsInChildren<FunctionalPackaging>().FirstOrDefault(fp => fp.GetComponentsInChildren<FunctionalProduct>().Length > maxProductsInPackaging);
+
+						if(!NullCheck(functionalPackaging)) {
+							Melon<Mod>.Logger.Msg("Packaging's contents incremented");
+							stepComplete2 = true;
+							break;
+						}
+
+						time += Time.deltaTime;
+
+						yield return null;
+					}
+
+					if(!stepComplete2) {
+						Melon<Mod>.Logger.Msg("Packaging's contents didn't increment after 3 seconds");
+						yield break;
+					}
+
+					if(functionalPackaging.IsFull) {
+						Melon<Mod>.Logger.Msg("Packaging is full - rotating conveyor");
+
+						functionalPackaging = null;
+						maxProductsInPackaging = 0;
+
+						numFinishedPackaging = packagingTool.FinalizedPackaging.Count;
+
+						stepComplete2 = false;
+						time = 0;
+
+						//Up to 3 seconds
+						while(time < 3) {
+							if(NullCheck([packagingStationMk2, packagingTool, packagingTool.PackagingContainer], "Can't find packaging tool - probably exited task"))
+								yield break;
+
+							packagingTool.conveyorVelocity = 1f;
+
+							if(packagingTool.finalizeCoroutine != null) {
+								Melon<Mod>.Logger.Msg("Full packaging kicked to hatch");
+								stepComplete2 = true;
+								break;
+							}
+
+							time += Time.deltaTime;
+
+							yield return null;
+						}
+
+						if(!stepComplete2) {
+							Melon<Mod>.Logger.Msg("Full packaging wasn't kicked into hatch after 3 seconds");
+							yield break;
+						}
+
+						stepComplete2 = false;
+						time = 0;
+
+						while(time < 3) {
+							if(packagingTool.finalizeCoroutine == null) {
+								stepComplete2 = true;
+								break;
+							}
+
+							time += Time.deltaTime;
+
+							yield return null;
+						}
+
+						if(!stepComplete2) {
+							Melon<Mod>.Logger.Msg("Kick animation didn't end after 3 seconds");
+							yield break;
+						}
+
+						if(packagingTool.PackagingContainer.childCount == 0) {
+							Melon<Mod>.Logger.Msg("Done packaging or exited task");
+							stepComplete = true;
+							break;
+						}
+					}
+				}
+
+				if(!stepComplete) {
+					Melon<Mod>.Logger.Msg("Packaging didn't complete after 20 attempts");
+					yield break;
 				}
 			}
 		}
