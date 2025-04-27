@@ -23,7 +23,7 @@ using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(AutomatedTasksMod.Mod), "AutomatedTasksMod", "0.2.0", "Robert Rioja")]
+[assembly: MelonInfo(typeof(AutomatedTasksMod.Mod), "AutomatedTasksMod", "0.2.1", "Robert Rioja")]
 [assembly: MelonColor(1, 255, 20, 147)]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
@@ -319,10 +319,13 @@ namespace AutomatedTasksMod {
 
 				pot = fertilizer.TargetPot;
 
-				int angle = 0;
+				float angle = 0;
+				int numSpiralRevolutions = 4;
+				float maxAngle = 360 * numSpiralRevolutions;
+				bool spiralingOut = true;
 				stepComplete = false;
 
-				for(float r = 0.01f; r < pot.PotRadius; r *= Mathf.Max(0.18f / (r + 0.1f), 1.02f)) {
+				for(float r = 0f; r >= 0; r = (-Math.Abs((angle / maxAngle) - 1) + 1) * pot.PotRadius) {
 					if(NullCheck([fertilizer, pot], "Can't find fertilizer - probably exited task"))
 						yield break;
 
@@ -352,11 +355,18 @@ namespace AutomatedTasksMod {
 						yield break;
 					}
 
-					angle += 20;
+					Melon<Mod>.Logger.Msg(r + " " + angle);
+
+					angle += 10 / (float) Math.Max(r / pot.PotRadius, 0.1);
+
+					if(spiralingOut && angle > maxAngle) {
+						Melon<Mod>.Logger.Msg("Pouring fertilizer did not complete after reaching the pot's radius - going back to center");
+						spiralingOut = false;
+					}
 				}
 
 				if(!stepComplete) {
-					Melon<Mod>.Logger.Msg("Pouring fertilizer did not complete after reaching the pot's radius");
+					Melon<Mod>.Logger.Msg("Pouring fertilizer did not complete after reaching the pot's radius and back to center");
 					yield break;
 				}
 			}
