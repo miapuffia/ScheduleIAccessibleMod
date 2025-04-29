@@ -23,7 +23,7 @@ using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(AutomatedTasksMod.Mod), "AutomatedTasksMod", "0.2.1", "Robert Rioja")]
+[assembly: MelonInfo(typeof(AutomatedTasksMod.Mod), "AutomatedTasksMod", "0.3.0", "Robert Rioja")]
 [assembly: MelonColor(1, 255, 20, 147)]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
@@ -355,8 +355,6 @@ namespace AutomatedTasksMod {
 						yield break;
 					}
 
-					Melon<Mod>.Logger.Msg(r + " " + angle);
-
 					angle += 10 / (float) Math.Max(r / pot.PotRadius, 0.1);
 
 					if(spiralingOut && angle > maxAngle) {
@@ -544,7 +542,7 @@ namespace AutomatedTasksMod {
 					if(packaging.IsSealed) {
 						Melon<Mod>.Logger.Msg("Moving packaging to hatch");
 
-						moveToPosition = new Vector3(packagingStation.OutputCollider.transform.position.x, packaging.gameObject.transform.position.y, packaging.gameObject.transform.position.z);
+						moveToPosition = new Vector3(packagingStation.OutputCollider.transform.position.x, packaging.gameObject.transform.position.y, packagingStation.OutputCollider.transform.position.z);
 
 						callbackError = false;
 
@@ -943,7 +941,7 @@ namespace AutomatedTasksMod {
 				callbackError = false;
 
 				yield return LerpFloatCallbackCoroutine(1, 0, 0.5f, f => {
-					if(NullCheck(chemistryStation) || NullCheck(chemistryStation.LabStand) || !IsChemistryStationInUse(chemistryStation)) {
+					if(NullCheck([chemistryStation, chemistryStation?.LabStand]) || !IsChemistryStationInUse(chemistryStation)) {
 						callbackError = true;
 						return false;
 					}
@@ -965,7 +963,7 @@ namespace AutomatedTasksMod {
 				if(NullCheck(beaker, "Can't find beaker - probably exited station"))
 					yield break;
 
-				if(NullCheck([chemistryStation, chemistryStation.LabStand, chemistryStation.LabStand.Funnel], "Can't find lab stand - probably exited task"))
+				if(NullCheck([chemistryStation, chemistryStation?.LabStand, chemistryStation?.LabStand?.Funnel], "Can't find lab stand - probably exited task"))
 					yield break;
 
 				moveToPosition = beaker.transform.position.Between(chemistryStation.LabStand.Funnel.transform.position, 0.3f);
@@ -1025,13 +1023,13 @@ namespace AutomatedTasksMod {
 
 				Melon<Mod>.Logger.Msg("Moving lab stand back");
 
-				if(NullCheck([chemistryStation, chemistryStation.LabStand], "Can't find chemistry station - probably exited task"))
+				if(NullCheck([chemistryStation, chemistryStation?.LabStand], "Can't find chemistry station - probably exited task"))
 					yield break;
 
 				callbackError = false;
 
 				yield return LerpFloatCallbackCoroutine(0, 1, 0.5f, f => {
-					if(NullCheck(chemistryStation) || NullCheck(chemistryStation.LabStand) || !IsChemistryStationInUse(chemistryStation)) {
+					if(NullCheck([chemistryStation, chemistryStation?.LabStand]) || !IsChemistryStationInUse(chemistryStation)) {
 						callbackError = true;
 						return false;
 					}
@@ -1055,7 +1053,7 @@ namespace AutomatedTasksMod {
 
 				//Up to 8 seconds
 				while(time < 8) {
-					if(NullCheck([chemistryStation, chemistryStation.BoilingFlask, chemistryStation.Burner], "Can't find chemistry station - probably exited task"))
+					if(NullCheck([chemistryStation, chemistryStation?.BoilingFlask, chemistryStation?.Burner], "Can't find chemistry station - probably exited task"))
 						yield break;
 
 					if(!IsChemistryStationInUse(chemistryStation)) {
@@ -1094,7 +1092,6 @@ namespace AutomatedTasksMod {
 
 			static System.Collections.IEnumerator AutomateLabOvenCoroutine() {
 				LabOven labOven;
-				LabOvenDoor labOvenDoor;
 				LabOvenButton labOvenButton;
 				bool callbackError;
 
@@ -1108,9 +1105,7 @@ namespace AutomatedTasksMod {
 					yield break;
 
 				if(!labOven.IsReadyForHarvest()) {
-					labOvenDoor = labOven.Door;
-
-					if(NullCheck(labOvenDoor, "Can't find lab oven door - probably exited task"))
+					if(NullCheck(labOven.Door, "Can't find lab oven door - probably exited task"))
 						yield break;
 
 					labOvenButton = labOven.Button;
@@ -1123,12 +1118,12 @@ namespace AutomatedTasksMod {
 					callbackError = false;
 
 					yield return LerpFloatCallbackCoroutine(0, 1, 0.5f, f => {
-						if(NullCheck(labOvenDoor) || NullCheck(labOven) || !IsLabOvenInUse(labOven)) {
+						if(NullCheck([labOven, labOven?.Door]) || !IsLabOvenInUse(labOven)) {
 							callbackError = true;
 							return false;
 						}
 
-						labOvenDoor.TargetPosition = f;
+						labOven.Door.TargetPosition = f;
 
 						return true;
 					});
@@ -1144,18 +1139,18 @@ namespace AutomatedTasksMod {
 
 					Melon<Mod>.Logger.Msg("Closing lab oven door");
 
-					if(NullCheck(labOvenDoor, "Can't find lab oven door - probably exited task"))
+					if(NullCheck([labOven, labOven?.Door], "Can't find lab oven door - probably exited task"))
 						yield break;
 
 					callbackError = false;
 
-					yield return LerpFloatCallbackCoroutine(labOvenDoor.ActualPosition, 0, 0.5f, f => {
-						if(NullCheck(labOvenDoor) || NullCheck(labOven) || !IsLabOvenInUse(labOven)) {
+					yield return LerpFloatCallbackCoroutine(labOven.Door.ActualPosition, 0, 0.5f, f => {
+						if(NullCheck([labOven, labOven?.Door]) || !IsLabOvenInUse(labOven)) {
 							callbackError = true;
 							return false;
 						}
 
-						labOvenDoor.TargetPosition = f;
+						labOven.Door.TargetPosition = f;
 
 						return true;
 					});
@@ -1314,6 +1309,258 @@ namespace AutomatedTasksMod {
 			}
 		}
 
+		[HarmonyPatch(typeof(BrickPressCanvas), "BeginButtonPressed")]
+		public static class BrickPressCanvasPatch {
+			private static void Postfix(CauldronCanvas __instance) {
+				MelonCoroutines.Start(AutomateBrickPressCoroutine());
+			}
+
+			static System.Collections.IEnumerator AutomateBrickPressCoroutine() {
+				BrickPress brickPress;
+				Vector3 positionModifier;
+				bool callbackError;
+
+				Melon<Mod>.Logger.Msg("Brick press task started");
+
+				yield return new WaitForSeconds(0.5f);
+
+				brickPress = GameObject.FindObjectsOfType<BrickPress>().FirstOrDefault(b => b.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? false);
+
+				if(NullCheck([brickPress, brickPress?.ContainerSpawnPoint, brickPress?.MouldDetection], "Can't find the brick press the player is using"))
+					yield break;
+
+				Melon<Mod>.Logger.Msg("Moving products up");
+
+				IEnumerable<FunctionalProduct> products = GameObject.FindObjectsOfType<FunctionalProduct>().Where(d => d.transform.position.MaxComponentDifference(brickPress.ContainerSpawnPoint.transform.position) < 1f);
+
+				if(!products.Any()) {
+					Melon<Mod>.Logger.Msg("Can't find products - probably exited task");
+					yield break;
+				}
+
+				foreach(FunctionalProduct product in products) {
+					product.GetComponent<Rigidbody>().useGravity = false;
+				}
+
+				positionModifier = new Vector3(0, 0.3f, 0);
+
+				callbackError = false;
+
+				yield return SinusoidalLerpPositionsCoroutine([.. products.Select(f => f.transform)], positionModifier, 1f, () => callbackError = true);
+
+				if(callbackError) {
+					Melon<Mod>.Logger.Msg("Can't find product to move - probably exited task");
+					yield break;
+				}
+
+				Melon<Mod>.Logger.Msg("Moving products right");
+
+				if(NullCheck([brickPress, brickPress?.ContainerSpawnPoint, brickPress?.MouldDetection], "Can't find mold - probably exited task"))
+					yield break;
+
+				if(!products.Any()) {
+					Melon<Mod>.Logger.Msg("Can't find products - probably exited task");
+					yield break;
+				}
+
+				positionModifier = new Vector3(brickPress.MouldDetection.transform.position.x - brickPress.ContainerSpawnPoint.position.x, 0, brickPress.MouldDetection.transform.position.z - brickPress.ContainerSpawnPoint.position.z);
+
+				callbackError = false;
+
+				yield return SinusoidalLerpPositionsCoroutine([.. products.Select(f => f.transform)], positionModifier, 1f, () => callbackError = true);
+
+				if(callbackError) {
+					Melon<Mod>.Logger.Msg("Can't find product to move - probably exited task");
+					yield break;
+				}
+
+				foreach(FunctionalProduct product in products) {
+					product.GetComponent<Rigidbody>().useGravity = true;
+				}
+
+				yield return new WaitForSeconds(1f);
+
+				Melon<Mod>.Logger.Msg("Pulling down handle");
+
+				callbackError = false;
+
+				yield return LerpFloatCallbackCoroutine(0, 1, 1f, f => {
+					if(NullCheck([brickPress, brickPress?.Handle])) {
+						callbackError = true;
+						return false;
+					}
+
+					brickPress.Handle.CurrentPosition = f;
+
+					return true;
+				});
+
+				if(callbackError) {
+					Melon<Mod>.Logger.Msg("Can't find handle to move - probably exited task");
+					yield break;
+				}
+
+				if(NullCheck([brickPress, brickPress?.Handle], "Can't find handle - probably exited task"))
+					yield break;
+
+				brickPress.Handle.CurrentPosition = 2;
+
+				Melon<Mod>.Logger.Msg("Done with brick press");
+			}
+		}
+
+		[HarmonyPatch(typeof(CauldronCanvas), "BeginButtonPressed")]
+		public static class CauldronCanvasPatch {
+			private static void Postfix(CauldronCanvas __instance) {
+				MelonCoroutines.Start(AutomateCauldronCoroutine());
+			}
+
+			static System.Collections.IEnumerator AutomateCauldronCoroutine() {
+				Cauldron cauldron;
+				PourableModule gasoline;
+				Vector3 moveToPosition;
+				Vector3 moveBackToPosition;
+				Vector3 rotateToAngles;
+				bool stepComplete;
+				bool callbackError;
+				float time;
+
+				Melon<Mod>.Logger.Msg("Cauldron task started");
+
+				yield return new WaitForSeconds(0.5f);
+
+				cauldron = GameObject.FindObjectsOfType<Cauldron>().FirstOrDefault(c => c.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? false);
+
+				if(NullCheck([cauldron, cauldron.ItemContainer], "Can't find the cauldron the player is using"))
+					yield break;
+
+				Melon<Mod>.Logger.Msg("Moving gasoline to pot");
+
+				gasoline = cauldron.ItemContainer.GetComponentInChildren<PourableModule>();
+
+				if(NullCheck(gasoline, "Can't find gasoline - probably exited task"))
+					yield break;
+
+				if(NullCheck(cauldron.CauldronFillable, "Can't find pot - probably exited task"))
+					yield break;
+
+				moveBackToPosition = gasoline.transform.position;
+				moveBackToPosition.y += 0.4f;
+
+				moveToPosition = gasoline.transform.position.Between(cauldron.CauldronFillable.transform.position, 0.5f);
+				moveToPosition.y += 0.4f;
+
+				gasoline.transform.localEulerAngles = Vector3.zero;
+
+				callbackError = false;
+
+				yield return SinusoidalLerpPositionAndRotationCoroutine(gasoline.transform, moveToPosition, Vector3.zero, 1f, () => callbackError = true);
+
+				if(callbackError) {
+					Melon<Mod>.Logger.Msg("Can't find gasoline - probably exited task");
+					yield break;
+				}
+
+				Melon<Mod>.Logger.Msg("Rotating gasoline");
+
+				gasoline.transform.localEulerAngles = Vector3.zero;
+				rotateToAngles = new Vector3(90, 0, 0);
+
+				yield return SinusoidalLerpPositionAndRotationCoroutine(gasoline.transform, moveToPosition, rotateToAngles, 2f, () => callbackError = true);
+
+				if(callbackError) {
+					Melon<Mod>.Logger.Msg("Can't find gasoline to move and rotate - probably exited task");
+					yield break;
+				}
+
+				Melon<Mod>.Logger.Msg("Holding gasoline");
+
+				stepComplete = false;
+				time = 0;
+
+				//Up to 5 seconds
+				while(time < 5) {
+					if(NullCheck(gasoline, "Can't find gasoline - probably exited task"))
+						yield break;
+
+					if(gasoline.LiquidLevel == 0) {
+						Melon<Mod>.Logger.Msg("Done pouring gasoline");
+						stepComplete = true;
+						break;
+					}
+
+					gasoline.transform.position = moveToPosition;
+					gasoline.transform.localEulerAngles = rotateToAngles;
+
+					time += Time.deltaTime;
+
+					yield return null;
+				}
+
+				if(!stepComplete) {
+					Melon<Mod>.Logger.Msg("Pouring gasoline didn't complete after 5 seconds");
+					yield break;
+				}
+
+				Melon<Mod>.Logger.Msg("Moving gasoline out of the way");
+
+				gasoline.transform.localEulerAngles = new Vector3(90, 0, 0);
+
+				callbackError = false;
+
+				yield return SinusoidalLerpPositionAndRotationCoroutine(gasoline.transform, moveBackToPosition, Vector3.zero, 0.8f, () => callbackError = true);
+
+				if(callbackError) {
+					Melon<Mod>.Logger.Msg("Can't find gasoline to move and rotate - probably exited task");
+					yield break;
+				}
+
+				yield return new WaitForSeconds(0.5f);
+
+				if(NullCheck([cauldron, cauldron.ItemContainer], "Can't find the cauldron the player is using"))
+					yield break;
+
+				Melon<Mod>.Logger.Msg("Moving solid ingredients");
+
+				foreach(IngredientPiece ingredientPiece in cauldron.ItemContainer.GetComponentsInChildren<IngredientPiece>()) {
+					Melon<Mod>.Logger.Msg("Moving ingredient to pot");
+
+					if(NullCheck(cauldron.CauldronFillable, "Can't find pot - probably exited task"))
+						yield break;
+
+					moveToPosition = ingredientPiece.transform.position.Between(cauldron.CauldronFillable.transform.position, 0.8f);
+					moveToPosition.y += 0.4f;
+
+					callbackError = false;
+
+					yield return SinusoidalLerpPositionCoroutine(ingredientPiece.transform, moveToPosition, 0.5f, () => callbackError = true);
+
+					if(callbackError) {
+						Melon<Mod>.Logger.Msg("Can't find gasoline - probably exited task");
+						yield break;
+					}
+
+					yield return new WaitForSeconds(0.3f);
+				}
+
+				yield return new WaitForSeconds(0.5f);
+
+				if(NullCheck([cauldron, cauldron.StartButtonClickable], "Can't find mixing station start button - probably exited task"))
+					yield break;
+
+				if(!IsCauldronInUse(cauldron)) {
+					Melon<Mod>.Logger.Msg("Probably exited task");
+					yield break;
+				}
+
+				Melon<Mod>.Logger.Msg("Pressing start button");
+
+				cauldron.StartButtonClickable.StartClick(new RaycastHit());
+
+				Melon<Mod>.Logger.Msg("Done mixing");
+			}
+		}
+
 		static bool IsPackagingStationInUse(PackagingStation packagingStation) {
 			return packagingStation.Container.childCount > 0;
 		}
@@ -1328,6 +1575,10 @@ namespace AutomatedTasksMod {
 
 		static bool IsLabOvenInUse(LabOven labOven) {
 			return labOven.PourableContainer.childCount > 0;
+		}
+
+		static bool IsCauldronInUse(Cauldron cauldron) {
+			return (cauldron.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? false) && (!GameObject.FindObjectOfType<CauldronCanvas>()?.Canvas?.enabled ?? false);
 		}
 
 		static System.Collections.IEnumerator LerpPositionCoroutine(Transform transform, Vector3 targetPosition, float duration, Action onError = null) {
@@ -1369,11 +1620,43 @@ namespace AutomatedTasksMod {
 				float xT = ((Mathf.Cos(t * Mathf.PI) / -2) + 0.5f);
 				Vector3 pos = startPosition;
 
-				pos.y = Mathf.Lerp(startPosition.y, targetPosition.y, yT);
 				pos.x = Mathf.Lerp(startPosition.x, targetPosition.x, xT);
+				pos.y = Mathf.Lerp(startPosition.y, targetPosition.y, yT);
 				pos.z = Mathf.Lerp(startPosition.z, targetPosition.z, yT);
 
 				transform.position = pos;
+
+				time += Time.deltaTime;
+				yield return null;
+			}
+		}
+
+		static System.Collections.IEnumerator SinusoidalLerpPositionsCoroutine(Transform[] transforms, Vector3 positionModifier, float duration, Action onError = null) {
+			float time = 0;
+			
+			Vector3[] startPositions = [.. transforms.Select(t => t.position)];
+			Vector3 startPosition;
+
+			while(time < duration) {
+				for(int i = 0; i < transforms.Length; i++) {
+					if(transforms[i] == null) {
+						onError?.Invoke();
+						yield break;
+					}
+
+					float t = time / duration;
+					float yT = Mathf.Sin(t * Mathf.PI / 2);
+					float xT = ((Mathf.Cos(t * Mathf.PI) / -2) + 0.5f);
+
+					startPosition = startPositions[i];
+					Vector3 pos = startPosition;
+					
+					pos.x = Mathf.Lerp(startPosition.x, startPosition.x + positionModifier.x, xT);
+					pos.y = Mathf.Lerp(startPosition.y, startPosition.y + positionModifier.y, yT);
+					pos.z = Mathf.Lerp(startPosition.z, startPosition.z + positionModifier.z, yT);
+
+					transforms[i].position = pos;
+				}
 
 				time += Time.deltaTime;
 				yield return null;
@@ -1448,8 +1731,8 @@ namespace AutomatedTasksMod {
 				Vector3 pos = startPosition;
 				Vector3 rot = startRotation;
 
-				pos.y = Mathf.Lerp(startPosition.y, targetPosition.y, yT);
 				pos.x = Mathf.Lerp(startPosition.x, targetPosition.x, xT);
+				pos.y = Mathf.Lerp(startPosition.y, targetPosition.y, yT);
 				pos.z = Mathf.Lerp(startPosition.z, targetPosition.z, yT);
 
 				rot.x = Mathf.Lerp(startRotation.x, targetAngle.x, aT);

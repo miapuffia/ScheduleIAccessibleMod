@@ -32,5 +32,9 @@ namespace AutomatedTasksMod {
 		public static Vector3 Between(this Vector3 a, Vector3 b, float amount) {
 			return new Vector3(a.x + ((b.x - a.x) * amount), a.y + ((b.y - a.y) * amount), a.z + ((b.z - a.z) * amount));
 		}
+
+		public static float MaxComponentDifference(this Vector3 a, Vector3 b) {
+			return Mathf.Max(Mathf.Abs(a.x - b.x), Mathf.Abs(a.y - b.y), Mathf.Abs(a.z - b.z));
+		}
 	}
 }
