@@ -23,12 +23,24 @@ using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(AutomatedTasksMod.Mod), "AutomatedTasksMod", "0.3.0", "Robert Rioja")]
+[assembly: MelonInfo(typeof(AutomatedTasksMod.Mod), "AutomatedTasksMod", "0.3.1", "Robert Rioja")]
 [assembly: MelonColor(1, 255, 20, 147)]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
 namespace AutomatedTasksMod {
 	public class Mod : MelonMod {
+		public static Vector3[] labOvenTrayPositionOffsets = [
+			new Vector3(0, 0, 0),
+			new Vector3(0, 0, 0.1f),
+			new Vector3(0, 0, -0.1f),
+			new Vector3(0.1f, 0, 0),
+			new Vector3(0.1f, 0, 0.1f),
+			new Vector3(0.1f, 0, -0.1f),
+			new Vector3(-0.1f, 0, 0),
+			new Vector3(-0.1f, 0, 0.1f),
+			new Vector3(-0.1f, 0, -0.1f),
+		];
+
 		[HarmonyPatch(typeof(InputPromptsCanvas), "LoadModule", [typeof(string)])]
 		public static class HarvestPatch {
 			private static void Postfix(InputPromptsCanvas __instance) {
@@ -1092,7 +1104,7 @@ namespace AutomatedTasksMod {
 
 			static System.Collections.IEnumerator AutomateLabOvenCoroutine() {
 				LabOven labOven;
-				LabOvenButton labOvenButton;
+				Vector3 moveToPosition;
 				bool callbackError;
 
 				Melon<Mod>.Logger.Msg("Lab oven task started");
@@ -1105,12 +1117,7 @@ namespace AutomatedTasksMod {
 					yield break;
 
 				if(!labOven.IsReadyForHarvest()) {
-					if(NullCheck(labOven.Door, "Can't find lab oven door - probably exited task"))
-						yield break;
-
-					labOvenButton = labOven.Button;
-
-					if(NullCheck(labOvenButton, "Can't find lab oven button - probably exited task"))
+					if(NullCheck([labOven.Door, labOven.Button], "Can't find lab oven - probably exited task"))
 						yield break;
 
 					Melon<Mod>.Logger.Msg("Opening lab oven door");
@@ -1118,7 +1125,7 @@ namespace AutomatedTasksMod {
 					callbackError = false;
 
 					yield return LerpFloatCallbackCoroutine(0, 1, 0.5f, f => {
-						if(NullCheck([labOven, labOven?.Door]) || !IsLabOvenInUse(labOven)) {
+						if(NullCheck([labOven, labOven?.Door, labOven?.PourableContainer, labOven?.ItemContainer]) || !IsLabOvenInUse(labOven)) {
 							callbackError = true;
 							return false;
 						}
@@ -1135,41 +1142,121 @@ namespace AutomatedTasksMod {
 
 					Melon<Mod>.Logger.Msg("Done opening lab oven door");
 
-					yield return new WaitForSeconds(3f);
-
-					Melon<Mod>.Logger.Msg("Closing lab oven door");
-
-					if(NullCheck([labOven, labOven?.Door], "Can't find lab oven door - probably exited task"))
+					if(NullCheck([labOven, labOven?.PourableContainer, labOven?.ItemContainer], "Can't find lab oven door - probably exited task"))
 						yield break;
 
-					callbackError = false;
+					if(labOven.PourableContainer.childCount > 0) {
+						Melon<Mod>.Logger.Msg("Lab oven has pourable");
 
-					yield return LerpFloatCallbackCoroutine(labOven.Door.ActualPosition, 0, 0.5f, f => {
-						if(NullCheck([labOven, labOven?.Door]) || !IsLabOvenInUse(labOven)) {
-							callbackError = true;
-							return false;
+						yield return new WaitForSeconds(3f);
+
+						Melon<Mod>.Logger.Msg("Closing lab oven door");
+
+						if(NullCheck([labOven, labOven?.Door], "Can't find lab oven door - probably exited task"))
+							yield break;
+
+						callbackError = false;
+
+						yield return LerpFloatCallbackCoroutine(labOven.Door.ActualPosition, 0, 0.5f, f => {
+							if(NullCheck([labOven, labOven?.Door, labOven?.PourableContainer, labOven?.ItemContainer]) || !IsLabOvenInUse(labOven)) {
+								callbackError = true;
+								return false;
+							}
+
+							labOven.Door.TargetPosition = f;
+
+							return true;
+						});
+
+						if(callbackError) {
+							Melon<Mod>.Logger.Msg("Can't find lab door to close - probably exited task");
+							yield break;
 						}
 
-						labOven.Door.TargetPosition = f;
+						Melon<Mod>.Logger.Msg("Done closing lab oven door");
 
-						return true;
-					});
+						yield return new WaitForSeconds(0.5f);
 
-					if(callbackError) {
-						Melon<Mod>.Logger.Msg("Can't find lab door to close - probably exited task");
+						Melon<Mod>.Logger.Msg("Pressing lab oven button");
+
+						if(NullCheck([labOven, labOven?.Button], "Can't find lab oven button - probably exited task"))
+							yield break;
+
+						labOven.Button.Press(new RaycastHit());
+
+						Melon<Mod>.Logger.Msg("Done with lab oven");
+					} else if(labOven.ItemContainer.childCount > 0) {
+						Melon<Mod>.Logger.Msg("Lab oven has products");
+
+						yield return new WaitForSeconds(1f);
+
+						if(NullCheck([labOven, labOven?.ItemContainer, labOven?.SquareTray], "Can't find lab oven - probably exited task"))
+							yield break;
+
+						int i = 0;
+
+						foreach(Draggable product in labOven.ItemContainer.GetComponentsInChildren<Draggable>()) {
+							moveToPosition = new Vector3(labOven.SquareTray.transform.position.x + labOvenTrayPositionOffsets[i % labOvenTrayPositionOffsets.Length].x, labOven.SquareTray.transform.position.y + labOvenTrayPositionOffsets[i % labOvenTrayPositionOffsets.Length].y, labOven.SquareTray.transform.position.z + labOvenTrayPositionOffsets[i % labOvenTrayPositionOffsets.Length].z);
+							moveToPosition.y += 0.3f;
+
+							Melon<Mod>.Logger.Msg("Moving product to tray");
+
+							callbackError = false;
+
+							yield return SinusoidalLerpPositionCoroutine(product.transform, moveToPosition, 0.5f, () => callbackError = true);
+
+							if(callbackError) {
+								Melon<Mod>.Logger.Msg("Can't find product to move - probably exited task");
+								yield break;
+							}
+
+							i++;
+
+							yield return new WaitForSeconds(0.3f);
+						}
+
+						yield return new WaitForSeconds(0.5f);
+
+						Melon<Mod>.Logger.Msg("Closing lab oven door");
+
+						if(NullCheck([labOven, labOven?.Door], "Can't find lab oven door - probably exited task"))
+							yield break;
+
+						callbackError = false;
+
+						yield return LerpFloatCallbackCoroutine(labOven.Door.ActualPosition, 0, 0.5f, f => {
+							if(NullCheck([labOven, labOven?.Door, labOven?.PourableContainer, labOven?.ItemContainer]) || !IsLabOvenInUse(labOven)) {
+								callbackError = true;
+								return false;
+							}
+
+							labOven.Door.TargetPosition = f;
+
+							return true;
+						});
+
+						if(callbackError) {
+							Melon<Mod>.Logger.Msg("Can't find lab door to close - probably exited task");
+							yield break;
+						}
+
+						Melon<Mod>.Logger.Msg("Done closing lab oven door");
+
+						yield return new WaitForSeconds(0.5f);
+
+						Melon<Mod>.Logger.Msg("Pressing lab oven button");
+
+						if(NullCheck([labOven, labOven?.Button], "Can't find lab oven button - probably exited task"))
+							yield break;
+
+						labOven.Button.Press(new RaycastHit());
+
+						Melon<Mod>.Logger.Msg("Done with lab oven");
+					} else {
+						Melon<Mod>.Logger.Msg("Can't find pourable or products - probably exited task");
 						yield break;
 					}
 
-					Melon<Mod>.Logger.Msg("Done closing lab oven door");
-
-					yield return new WaitForSeconds(0.5f);
-
-					Melon<Mod>.Logger.Msg("Pressing lab oven button");
-
-					if(NullCheck(labOvenButton, "Can't find lab oven button - probably exited task"))
-						yield break;
-
-					labOvenButton.Press(new RaycastHit());
 				} else {
 					//Couldn't figure out how to automate smashing with the hammer :(
 				}
@@ -1536,7 +1623,7 @@ namespace AutomatedTasksMod {
 					yield return SinusoidalLerpPositionCoroutine(ingredientPiece.transform, moveToPosition, 0.5f, () => callbackError = true);
 
 					if(callbackError) {
-						Melon<Mod>.Logger.Msg("Can't find gasoline - probably exited task");
+						Melon<Mod>.Logger.Msg("Can't find ingredient - probably exited task");
 						yield break;
 					}
 
@@ -1574,7 +1661,7 @@ namespace AutomatedTasksMod {
 		}
 
 		static bool IsLabOvenInUse(LabOven labOven) {
-			return labOven.PourableContainer.childCount > 0;
+			return labOven.PourableContainer.childCount > 0 || labOven.ItemContainer.childCount > 0 || labOven.Door.ActualPosition > 0;
 		}
 
 		static bool IsCauldronInUse(Cauldron cauldron) {
