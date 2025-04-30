@@ -1,8 +1,10 @@
 ﻿using HarmonyLib;
 using Il2CppGameKit.Utilities;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
+using Il2CppScheduleOne.Equipping;
 using Il2CppScheduleOne.Growing;
 using Il2CppScheduleOne.Interaction;
+using Il2CppScheduleOne.ItemFramework;
 using Il2CppScheduleOne.Networking;
 using Il2CppScheduleOne.ObjectScripts;
 using Il2CppScheduleOne.ObjectScripts.Soil;
@@ -23,12 +25,27 @@ using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(AutomatedTasksMod.Mod), "AutomatedTasksMod", "0.3.1", "Robert Rioja")]
+[assembly: MelonInfo(typeof(AutomatedTasksMod.Mod), "AutomatedTasksMod", "0.4.0", "Robert Rioja")]
 [assembly: MelonColor(1, 255, 20, 147)]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
 namespace AutomatedTasksMod {
 	public class Mod : MelonMod {
+		private static MelonPreferences_Category taskToggles;
+		private static MelonPreferences_Entry<bool> pourSoilTask;
+		private static MelonPreferences_Entry<bool> sowSeedTask;
+		private static MelonPreferences_Entry<bool> pourWaterTask;
+		private static MelonPreferences_Entry<bool> pourFertilizerTask;
+		private static MelonPreferences_Entry<bool> harvestTask;
+		private static MelonPreferences_Entry<bool> sinkTask;
+		private static MelonPreferences_Entry<bool> packagingTask;
+		private static MelonPreferences_Entry<bool> packagingMK2Task;
+		private static MelonPreferences_Entry<bool> brickPressTask;
+		private static MelonPreferences_Entry<bool> mixingTask;
+		private static MelonPreferences_Entry<bool> chemistryTask;
+		private static MelonPreferences_Entry<bool> labOvenTask;
+		private static MelonPreferences_Entry<bool> cauldronTask;
+
 		public static Vector3[] labOvenTrayPositionOffsets = [
 			new Vector3(0, 0, 0),
 			new Vector3(0, 0, 0.1f),
@@ -41,6 +58,24 @@ namespace AutomatedTasksMod {
 			new Vector3(-0.1f, 0, -0.1f),
 		];
 
+		public override void OnInitializeMelon() {
+			taskToggles = MelonPreferences.CreateCategory("AutomatedTasksMod_01_TaskToggles", "Task Toggles");
+
+			pourSoilTask = taskToggles.CreateEntry<bool>("automate_01_PourSoil", true, "Automate pouring soil");
+			sowSeedTask = taskToggles.CreateEntry<bool>("automate_02_SowSeed", true, "Automate sowing seeds");
+			pourWaterTask = taskToggles.CreateEntry<bool>("automate_03_PourWater", true, "Automate pouring water");
+			pourFertilizerTask = taskToggles.CreateEntry<bool>("automate_04_PourFertilizer", true, "Automate pouring fertilizer");
+			harvestTask = taskToggles.CreateEntry<bool>("automate_05_Harvest", true, "Automate harvesting");
+			sinkTask = taskToggles.CreateEntry<bool>("automate_06_Sink", true, "Automate sink tap");
+			packagingTask = taskToggles.CreateEntry<bool>("automate_07_Packaging", true, "Automate packaging station");
+			packagingMK2Task = taskToggles.CreateEntry<bool>("automate_08_PackagingMK2", true, "Automate packaging MK2 station");
+			brickPressTask = taskToggles.CreateEntry<bool>("automate_09_BrickPress", true, "Automate brick press station");
+			mixingTask = taskToggles.CreateEntry<bool>("automate_10_Mixing", true, "Automate mixing station");
+			chemistryTask = taskToggles.CreateEntry<bool>("automate_11_Chemistry", true, "Automate chemistry station");
+			labOvenTask = taskToggles.CreateEntry<bool>("automate_12_LabOven", true, "Automate lab oven");
+			cauldronTask = taskToggles.CreateEntry<bool>("automate_13_Cauldron", true, "Automate cauldron");
+		}
+
 		[HarmonyPatch(typeof(InputPromptsCanvas), "LoadModule", [typeof(string)])]
 		public static class HarvestPatch {
 			private static void Postfix(InputPromptsCanvas __instance) {
@@ -49,7 +84,11 @@ namespace AutomatedTasksMod {
 						MelonCoroutines.Start(AutomatePourTask());
 						break;
 					case "harvestplant":
-						MelonCoroutines.Start(AutomateHarvestingCoroutine());
+						if(harvestTask.Value) {
+							MelonCoroutines.Start(AutomateHarvestingCoroutine());
+						} else {
+							Melon<Mod>.Logger.Msg("Automate harvesting disabled in settings");
+						}
 						break;
 				}
 			}
@@ -60,32 +99,46 @@ namespace AutomatedTasksMod {
 				PourableSoil soil = GameObject.FindObjectsOfType<PourableSoil>().FirstOrDefault(p => p.TargetPot?.PlayerUserObject.GetComponent<Player>()?.IsLocalPlayer ?? false);
 
 				if(!NullCheck(soil)) {
-					yield return AutomatePouringSoilCoroutine(soil);
-					yield break;
+					if(pourSoilTask.Value) {
+						yield return AutomatePouringSoilCoroutine(soil);
+						yield break;
+					} else {
+						Melon<Mod>.Logger.Msg("Automate pouring soil disabled in settings");
+					}
 				}
 
 				FunctionalSeed seed = GameObject.FindObjectOfType<FunctionalSeed>();
 
 				if(!NullCheck(seed)) {
-					yield return AutomateSowingSeedCoroutine(seed);
-					yield break;
+					if(sowSeedTask.Value) {
+						yield return AutomateSowingSeedCoroutine(seed);
+						yield break;
+					} else {
+						Melon<Mod>.Logger.Msg("Automate sowing seeds disabled in settings");
+					}
 				}
 
 				FunctionalWateringCan wateringCan = GameObject.FindObjectOfType<FunctionalWateringCan>();
 
 				if(!NullCheck(wateringCan)) {
-					yield return AutomatePouringWaterCoroutine(wateringCan);
-					yield break;
+					if(pourWaterTask.Value) {
+						yield return AutomatePouringWaterCoroutine(wateringCan);
+						yield break;
+					} else {
+						Melon<Mod>.Logger.Msg("Automate pouring water disabled in settings");
+					}
 				}
 
 				PourableAdditive fertilizer = GameObject.FindObjectsOfType<PourableAdditive>().FirstOrDefault(m => m.TargetPot?.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? false);
 
 				if(!NullCheck(fertilizer)) {
-					yield return AutomatePouringFertilizerCoroutine(fertilizer);
-					yield break;
+					if(pourFertilizerTask.Value) {
+						yield return AutomatePouringFertilizerCoroutine(fertilizer);
+						yield break;
+					} else {
+						Melon<Mod>.Logger.Msg("Automate pouring fertilizer disabled in settings");
+					}
 				}
-
-				Melon<Mod>.Logger.Msg("Probably exited task");
 			}
 
 			static System.Collections.IEnumerator AutomatePouringSoilCoroutine(PourableSoil soil) {
@@ -383,7 +436,6 @@ namespace AutomatedTasksMod {
 
 			static System.Collections.IEnumerator AutomateHarvestingCoroutine() {
 				Pot usingPot;
-				PlantHarvestable harvestable;
 
 				Melon<Mod>.Logger.Msg("Harvest task started");
 
@@ -394,37 +446,76 @@ namespace AutomatedTasksMod {
 				if(NullCheck(usingPot, "Can't find the pot the player is using - probably exited task"))
 					yield break;
 
-				//We can never have more than 20 harvestables so this is a failsafe
-				for(int i = 0; i < 20; i++) {
+				float harvestCooldown = IsUsingElectricTrimmers(usingPot.PlayerUserObject.GetComponent<Player>()) ? 0.25f : 0.5f;
+
+				foreach(PlantHarvestable harvestable in usingPot.GetComponentsInChildren<PlantHarvestable>()) {
 					if(!usingPot.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? true) {
 						Melon<Mod>.Logger.Msg("Pot isn't associated with player - probably exited task");
 						yield break;
 					}
 
-					harvestable = usingPot.GetComponentInChildren<PlantHarvestable>();
-
-					//This should never trigger but we check to be safe
-					if(NullCheck(harvestable, "Done harvesting"))
-						yield break;
-
 					Melon<Mod>.Logger.Msg("Harvesting plant piece");
 					harvestable.Harvest();
 
-					if(NullCheck(usingPot.GetComponentInChildren<PlantHarvestable>(), "Done harvesting"))
-						yield break;
-
-					yield return new WaitForSeconds(0.5f);
+					yield return new WaitForSeconds(harvestCooldown);
 				}
+
+				Melon<Mod>.Logger.Msg("Done harvesting");
+			}
+
+			public static bool IsUsingElectricTrimmers(Player player) {
+				GameObject playerGO = player.LocalGameObject;
+
+				if(NullCheck(playerGO)) {
+					Melon<Mod>.Logger.Msg("Can't find player to determine what trimmers are being used - continuing");
+					return false;
+				}
+
+				PlayerInventory playerInventory = playerGO.GetComponent<PlayerInventory>();
+
+				if(NullCheck(playerInventory)) {
+					Melon<Mod>.Logger.Msg("Can't find player inventory to determine what trimmers are being used - continuing");
+					return false;
+				}
+
+				if(playerInventory.PriorEquippedSlotIndex >= player.Inventory.Count) {
+					Melon<Mod>.Logger.Msg("Invalid equipped item index - continuing");
+					return false;
+				}
+
+				ItemSlot itemSlot = player.Inventory[playerInventory.PriorEquippedSlotIndex];
+
+				if(NullCheck(itemSlot)) {
+					Melon<Mod>.Logger.Msg("Can't find item slot to determine what trimmers are being used - continuing");
+					return false;
+				}
+
+				ItemInstance itemInstance = itemSlot.ItemInstance;
+
+				if(NullCheck(itemInstance)) {
+					Melon<Mod>.Logger.Msg("Can't find item instance to determine what trimmers are being used - continuing");
+					return false;
+				}
+
+				if(itemInstance.ID == "electrictrimmers") {
+					return true;
+				}
+
+				return false;
 			}
 		}
 
 		[HarmonyPatch(typeof(Tap), "Interacted")]
 		public static class TapPatch {
 			private static void Postfix(Tap __instance) {
-				MelonCoroutines.Start(AutomateTapCoroutine(__instance));
+				if(sinkTask.Value) {
+					MelonCoroutines.Start(AutomateSinkCoroutine(__instance));
+				} else {
+					Melon<Mod>.Logger.Msg("Automate sink tap disabled in settings");
+				}
 			}
 
-			static System.Collections.IEnumerator AutomateTapCoroutine(Tap tap) {
+			static System.Collections.IEnumerator AutomateSinkCoroutine(Tap tap) {
 				Melon<Mod>.Logger.Msg("Sink task started");
 
 				yield return new WaitForSeconds(0.5f);
@@ -445,12 +536,14 @@ namespace AutomatedTasksMod {
 		[HarmonyPatch(typeof(PackagingStation), "StartTask")]
 		public static class PackagingStationPatch {
 			private static void Postfix(PackagingStation __instance) {
-				MelonCoroutines.Start(AutomatePackagingStationCoroutine(__instance));
+				if(packagingTask.Value) {
+					MelonCoroutines.Start(AutomatePackagingStationCoroutine(__instance));
+				} else {
+					Melon<Mod>.Logger.Msg("Automate packaging station disabled in settings");
+				}
 			}
 
 			static System.Collections.IEnumerator AutomatePackagingStationCoroutine(PackagingStation packagingStation) {
-				int numProduct, numBaggies;
-				FunctionalProduct product;
 				FunctionalPackaging packaging;
 				Vector3 moveToPosition;
 				bool stepComplete;
@@ -461,72 +554,191 @@ namespace AutomatedTasksMod {
 
 				yield return new WaitForSeconds(0.5f);
 
+				if(NullCheck([packagingStation, packagingStation.Container], "Can't find packaging station - probably exited task"))
+					yield break;
+
+				if(!IsPackagingStationInUse(packagingStation)) {
+					Melon<Mod>.Logger.Msg("Probably exited task");
+					yield break;
+				}
+
 				int productsInPackaging;
 
-				//We can only ever have 20 products so this is a failsafe
-				for(int i = 0; i < 20; i++) {
-					if(NullCheck([packagingStation, packagingStation.Container], "Can't find packaging station - probably exited task"))
+				while(IsPackagingStationInUse(packagingStation)) {
+					foreach(FunctionalProduct product in packagingStation.Container.GetComponentsInImmediateChildren<FunctionalProduct>()) {
+						if(NullCheck([packagingStation, packagingStation.Container])) {
+							Melon<Mod>.Logger.Msg("Can't find packaging station - probably exited task");
+							yield break;
+						}
+
+						if(!IsPackagingStationInUse(packagingStation)) {
+							Melon<Mod>.Logger.Msg("Probably exited task");
+							yield break;
+						}
+
+						packaging = packagingStation.Container.GetComponentInChildren<FunctionalPackaging>();
+
+						if(NullCheck(packaging, "Can't find packaging - probably exited task"))
+							yield break;
+
+						Melon<Mod>.Logger.Msg("Moving product to packaging");
+
+						moveToPosition = packaging.gameObject.transform.position;
+						moveToPosition.y += 0.3f;
+
+						productsInPackaging = packaging.PackedProducts.Count;
+
+						callbackError = false;
+
+						yield return SinusoidalLerpPositionCoroutine(product.gameObject.transform, moveToPosition, 0.5f, () => callbackError = true);
+
+						if(callbackError) {
+							Melon<Mod>.Logger.Msg("Can't find product to move - probably exited task");
+							yield break;
+						}
+
+						Melon<Mod>.Logger.Msg("Updating packaging's contents");
+
+						stepComplete = false;
+						time = 0;
+
+						//Up to 3 seconds
+						while(time < 3) {
+							if(NullCheck([packagingStation, packaging], "Can't find packaging - probably exited task"))
+								yield break;
+
+							if(!IsPackagingStationInUse(packagingStation)) {
+								Melon<Mod>.Logger.Msg("Probably exited task");
+								yield break;
+							}
+
+							if(packaging.PackedProducts.Count > productsInPackaging) {
+								if(packaging.IsFull) {
+									Melon<Mod>.Logger.Msg("Packaging is full - closing packaging");
+									packaging.Seal();
+								} else {
+									Melon<Mod>.Logger.Msg("Packaging's contents increased");
+								}
+
+								stepComplete = true;
+								break;
+							}
+
+							time += Time.deltaTime;
+
+							yield return null;
+						}
+
+						if(!stepComplete) {
+							Melon<Mod>.Logger.Msg("Packaging's contents didn't increase after 3 seconds");
+							yield break;
+						}
+
+						yield return new WaitForSeconds(0.2f);
+
+						if(NullCheck([packagingStation, packagingStation.OutputCollider, packaging], "Can't find packaging - probably exited task"))
+							yield break;
+
+						if(!IsPackagingStationInUse(packagingStation)) {
+							Melon<Mod>.Logger.Msg("Probably exited task");
+							yield break;
+						}
+
+						if(packaging.IsSealed) {
+							Melon<Mod>.Logger.Msg("Moving packaging to hatch");
+
+							moveToPosition = new Vector3(packagingStation.OutputCollider.transform.position.x, packaging.gameObject.transform.position.y, packagingStation.OutputCollider.transform.position.z);
+
+							callbackError = false;
+
+							yield return SinusoidalLerpPositionCoroutine(packaging.gameObject.transform, moveToPosition, 0.3f, () => callbackError = true);
+
+							if(callbackError) {
+								Melon<Mod>.Logger.Msg("Can't find packaging to move - probably exited task");
+								yield break;
+							}
+
+							yield return new WaitForSeconds(0.8f);
+
+							if(!IsPackagingStationInUse(packagingStation)) {
+								Melon<Mod>.Logger.Msg("Done packaging");
+								yield break;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		[HarmonyPatch(typeof(PackagingStationMk2), "StartTask")]
+		public static class PackagingStationMk2Patch {
+			private static void Postfix(PackagingStationMk2 __instance) {
+				if(packagingMK2Task.Value) {
+					MelonCoroutines.Start(AutomatePackagingStationMk2Coroutine(__instance));
+				} else {
+					Melon<Mod>.Logger.Msg("Automate packaging MK2 station disabled in settings");
+				}
+			}
+
+			static System.Collections.IEnumerator AutomatePackagingStationMk2Coroutine(PackagingStationMk2 packagingStationMk2) {
+				PackagingTool packagingTool;
+				FunctionalPackaging functionalPackaging = null;
+				int maxProductsInPackaging;
+				int numFinishedPackaging;
+				bool stepComplete;
+				float time;
+
+				Melon<Mod>.Logger.Msg("Packaging station MK2 task started");
+
+				yield return new WaitForSeconds(0.5f);
+
+				if(NullCheck(packagingStationMk2, "Can't find packaging station MK2 - probably exited task"))
+					yield break;
+
+				if(!IsPackagingStationMk2InUse(packagingStationMk2)) {
+					Melon<Mod>.Logger.Msg("Probably exited task");
+					yield break;
+				}
+
+				packagingTool = packagingStationMk2.GetComponentInChildren<PackagingTool>();
+
+				if(NullCheck([packagingTool, packagingTool.PackagingContainer], "Can't find packaging tool - probably exited task"))
+					yield break;
+
+				while(packagingTool.ProductInHopper > 0) {
+					if(NullCheck([packagingStationMk2, packagingTool, packagingTool.PackagingContainer], "Can't find packaging tool - probably exited task"))
 						yield break;
 
-					if(!IsPackagingStationInUse(packagingStation)) {
+					if(!IsPackagingStationMk2InUse(packagingStationMk2)) {
 						Melon<Mod>.Logger.Msg("Probably exited task");
 						yield break;
 					}
 
-					packaging = packagingStation.Container.GetComponentInChildren<FunctionalPackaging>();
+					Melon<Mod>.Logger.Msg("Dropping product");
 
-					if(NullCheck(packaging, "Can't find packaging - probably exited task"))
-						yield break;
+					packagingTool.DropProduct();
 
-					numProduct = packagingStation.GetComponentsInChildren<FilledPackagingVisuals>().Count;
-					//Add 1 for the active packaging
-					numBaggies = packagingStation.transform.Find("PackagingAlignments").GetComponentsInChildren<Rigidbody>().Count + 1;
+					Melon<Mod>.Logger.Msg("Waiting for packaging's contents to update");
 
-					if(ZeroCheck(numProduct, "Ran out of product - stopping"))
-						yield break;
-
-					if(ZeroCheck(numBaggies, "Ran out of packaging - stopping"))
-						yield break;
-
-					Melon<Mod>.Logger.Msg("Moving product to packaging");
-
-					product = packagingStation.Container.GetComponentInImmediateChildren<FunctionalProduct>();
-
-					if(NullCheck(product, "Can't find product - probably exited task"))
-						yield break;
-
-					moveToPosition = packaging.gameObject.transform.position;
-					moveToPosition.y += 0.3f;
-
-					productsInPackaging = packaging.PackedProducts.Count;
-
-					callbackError = false;
-
-					yield return SinusoidalLerpPositionCoroutine(product.gameObject.transform, moveToPosition, 0.5f, () => callbackError = true);
-
-					if(callbackError) {
-						Melon<Mod>.Logger.Msg("Can't find product to move - probably exited task");
-						yield break;
-					}
-
-					Melon<Mod>.Logger.Msg("Updating packaging's contents");
+					maxProductsInPackaging = functionalPackaging?.GetComponentsInChildren<FunctionalProduct>().Length ?? 0;
 
 					stepComplete = false;
 					time = 0;
 
 					//Up to 3 seconds
 					while(time < 3) {
-						if(NullCheck(packaging, "Can't find packaging - probably exited task"))
+						if(NullCheck([packagingTool, packagingTool.PackagingContainer], "Can't find packaging tool - probably exited task"))
 							yield break;
 
-						if(packaging.PackedProducts.Count > productsInPackaging) {
-							if(packaging.IsFull) {
-								Melon<Mod>.Logger.Msg("Packaging is full - closing packaging");
-								packaging.Seal();
-							} else {
-								Melon<Mod>.Logger.Msg("Packaging's contents increased");
-							}
+						if(!IsPackagingStationMk2InUse(packagingStationMk2)) {
+							Melon<Mod>.Logger.Msg("Probably exited task");
+							yield break;
+						}
 
+						functionalPackaging = packagingTool.PackagingContainer.GetComponentsInChildren<FunctionalPackaging>().FirstOrDefault(fp => fp.GetComponentsInChildren<FunctionalProduct>().Length > maxProductsInPackaging);
+
+						if(!NullCheck(functionalPackaging)) {
+							Melon<Mod>.Logger.Msg("Packaging's contents incremented");
 							stepComplete = true;
 							break;
 						}
@@ -537,49 +749,198 @@ namespace AutomatedTasksMod {
 					}
 
 					if(!stepComplete) {
-						Melon<Mod>.Logger.Msg("Packaging's contents didn't increase after 3 seconds");
+						Melon<Mod>.Logger.Msg("Packaging's contents didn't increment after 3 seconds");
 						yield break;
 					}
 
-					yield return new WaitForSeconds(0.2f);
+					if(functionalPackaging.IsFull) {
+						Melon<Mod>.Logger.Msg("Packaging is full - rotating conveyor");
 
-					if(NullCheck([packagingStation, packagingStation.OutputCollider, packaging], "Can't find packaging - probably exited task"))
-						yield break;
+						functionalPackaging = null;
+						maxProductsInPackaging = 0;
 
-					if(!IsPackagingStationInUse(packagingStation)) {
-						Melon<Mod>.Logger.Msg("Probably exited task");
-						yield break;
-					}
+						numFinishedPackaging = packagingTool.FinalizedPackaging.Count;
 
-					if(packaging.IsSealed) {
-						Melon<Mod>.Logger.Msg("Moving packaging to hatch");
+						stepComplete = false;
+						time = 0;
 
-						moveToPosition = new Vector3(packagingStation.OutputCollider.transform.position.x, packaging.gameObject.transform.position.y, packagingStation.OutputCollider.transform.position.z);
+						//Up to 3 seconds
+						while(time < 3) {
+							if(NullCheck([packagingStationMk2, packagingTool, packagingTool.PackagingContainer], "Can't find packaging tool - probably exited task"))
+								yield break;
 
-						callbackError = false;
+							if(!IsPackagingStationMk2InUse(packagingStationMk2)) {
+								Melon<Mod>.Logger.Msg("Probably exited task");
+								yield break;
+							}
 
-						yield return SinusoidalLerpPositionCoroutine(packaging.gameObject.transform, moveToPosition, 0.3f, () => callbackError = true);
+							packagingTool.conveyorVelocity = 1f;
 
-						if(callbackError) {
-							Melon<Mod>.Logger.Msg("Can't find packaging to move - probably exited task");
+							if(packagingTool.finalizeCoroutine != null) {
+								Melon<Mod>.Logger.Msg("Full packaging kicked to hatch");
+								stepComplete = true;
+								break;
+							}
+
+							time += Time.deltaTime;
+
+							yield return null;
+						}
+
+						if(!stepComplete) {
+							Melon<Mod>.Logger.Msg("Full packaging wasn't kicked into hatch after 3 seconds");
 							yield break;
 						}
 
-						yield return new WaitForSeconds(0.8f);
+						stepComplete = false;
+						time = 0;
 
-						if(!IsPackagingStationInUse(packagingStation)) {
-							Melon<Mod>.Logger.Msg("Done packaging");
+						while(time < 3) {
+							if(NullCheck([packagingStationMk2, packagingTool], "Can't find packaging tool - probably exited task"))
+								yield break;
+
+							if(!IsPackagingStationMk2InUse(packagingStationMk2)) {
+								Melon<Mod>.Logger.Msg("Probably exited task");
+								yield break;
+							}
+
+							if(packagingTool.finalizeCoroutine == null) {
+								stepComplete = true;
+								break;
+							}
+
+							time += Time.deltaTime;
+
+							yield return null;
+						}
+
+						if(!stepComplete) {
+							Melon<Mod>.Logger.Msg("Kick animation didn't end after 3 seconds");
 							yield break;
+						}
+
+						if(packagingTool.PackagingContainer.childCount == 0) {
+							Melon<Mod>.Logger.Msg("Done packaging or exited task");
+							stepComplete = true;
+							break;
 						}
 					}
 				}
 			}
 		}
 
+		[HarmonyPatch(typeof(BrickPressCanvas), "BeginButtonPressed")]
+		public static class BrickPressCanvasPatch {
+			private static void Postfix(CauldronCanvas __instance) {
+				if(brickPressTask.Value) {
+					MelonCoroutines.Start(AutomateBrickPressCoroutine());
+				} else {
+					Melon<Mod>.Logger.Msg("Automate brick press station disabled in settings");
+				}
+			}
+
+			static System.Collections.IEnumerator AutomateBrickPressCoroutine() {
+				BrickPress brickPress;
+				Vector3 positionModifier;
+				bool callbackError;
+
+				Melon<Mod>.Logger.Msg("Brick press task started");
+
+				yield return new WaitForSeconds(0.5f);
+
+				brickPress = GameObject.FindObjectsOfType<BrickPress>().FirstOrDefault(b => b.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? false);
+
+				if(NullCheck([brickPress, brickPress?.ContainerSpawnPoint, brickPress?.MouldDetection], "Can't find the brick press the player is using"))
+					yield break;
+
+				Melon<Mod>.Logger.Msg("Moving products up");
+
+				IEnumerable<FunctionalProduct> products = GameObject.FindObjectsOfType<FunctionalProduct>().Where(d => d.transform.position.MaxComponentDifference(brickPress.ContainerSpawnPoint.transform.position) < 1f);
+
+				if(!products.Any()) {
+					Melon<Mod>.Logger.Msg("Can't find products - probably exited task");
+					yield break;
+				}
+
+				foreach(FunctionalProduct product in products) {
+					product.GetComponent<Rigidbody>().useGravity = false;
+				}
+
+				positionModifier = new Vector3(0, 0.3f, 0);
+
+				callbackError = false;
+
+				yield return SinusoidalLerpPositionsCoroutine([.. products.Select(f => f.transform)], positionModifier, 1f, () => callbackError = true);
+
+				if(callbackError) {
+					Melon<Mod>.Logger.Msg("Can't find product to move - probably exited task");
+					yield break;
+				}
+
+				Melon<Mod>.Logger.Msg("Moving products right");
+
+				if(NullCheck([brickPress, brickPress?.ContainerSpawnPoint, brickPress?.MouldDetection], "Can't find mold - probably exited task"))
+					yield break;
+
+				if(!products.Any()) {
+					Melon<Mod>.Logger.Msg("Can't find products - probably exited task");
+					yield break;
+				}
+
+				positionModifier = new Vector3(brickPress.MouldDetection.transform.position.x - brickPress.ContainerSpawnPoint.position.x, 0, brickPress.MouldDetection.transform.position.z - brickPress.ContainerSpawnPoint.position.z);
+
+				callbackError = false;
+
+				yield return SinusoidalLerpPositionsCoroutine([.. products.Select(f => f.transform)], positionModifier, 1f, () => callbackError = true);
+
+				if(callbackError) {
+					Melon<Mod>.Logger.Msg("Can't find product to move - probably exited task");
+					yield break;
+				}
+
+				foreach(FunctionalProduct product in products) {
+					product.GetComponent<Rigidbody>().useGravity = true;
+				}
+
+				yield return new WaitForSeconds(1f);
+
+				Melon<Mod>.Logger.Msg("Pulling down handle");
+
+				callbackError = false;
+
+				yield return LerpFloatCallbackCoroutine(0, 1, 1f, f => {
+					if(NullCheck([brickPress, brickPress?.Handle])) {
+						callbackError = true;
+						return false;
+					}
+
+					brickPress.Handle.CurrentPosition = f;
+
+					return true;
+				});
+
+				if(callbackError) {
+					Melon<Mod>.Logger.Msg("Can't find handle to move - probably exited task");
+					yield break;
+				}
+
+				if(NullCheck([brickPress, brickPress?.Handle], "Can't find handle - probably exited task"))
+					yield break;
+
+				brickPress.Handle.CurrentPosition = 2;
+
+				Melon<Mod>.Logger.Msg("Done with brick press");
+			}
+		}
+
 		[HarmonyPatch(typeof(MixingStationCanvas), "BeginButtonPressed")]
 		public static class MixingStationCanvasPatch {
 			private static void Postfix(MixingStationCanvas __instance) {
-				MelonCoroutines.Start(AutomateMixingStationCoroutine());
+				if(mixingTask.Value) {
+					MelonCoroutines.Start(AutomateMixingStationCoroutine());
+				} else {
+					Melon<Mod>.Logger.Msg("Automate mixing station disabled in settings");
+				}
 			}
 
 			static System.Collections.IEnumerator AutomateMixingStationCoroutine() {
@@ -610,19 +971,13 @@ namespace AutomatedTasksMod {
 
 				Melon<Mod>.Logger.Msg("Moving products");
 
-				//We can only ever have up to 20 products so we want to loop one extra to trigger the done message
-				for(int i = 0; i < 21; i++) {
+				for(int i = 0; i < mixingStation.ItemContainer.childCount; i++) {
 					if(NullCheck([mixingStation, mixingStation.ItemContainer, mixingStation.BowlFillable], "Can't find mixing station - probably exited task"))
 						yield break;
 
 					if(!IsMixingStationInUse(mixingStation)) {
 						Melon<Mod>.Logger.Msg("Probably exited task");
 						yield break;
-					}
-
-					if(mixingStation.ItemContainer.childCount <= i) {
-						Melon<Mod>.Logger.Msg("Done moving products");
-						break;
 					}
 
 					product = mixingStation.ItemContainer.GetChild(i);
@@ -746,7 +1101,11 @@ namespace AutomatedTasksMod {
 		[HarmonyPatch(typeof(ChemistryStationCanvas), "BeginButtonPressed")]
 		public static class ChemistryStationCanvasPatch {
 			private static void Postfix(ChemistryStationCanvas __instance) {
-				MelonCoroutines.Start(AutomateChemistryStationCoroutine());
+				if(chemistryTask.Value) {
+					MelonCoroutines.Start(AutomateChemistryStationCoroutine());
+				} else {
+					Melon<Mod>.Logger.Msg("Automate chemistry station disabled in settings");
+				}
 			}
 
 			static System.Collections.IEnumerator AutomateChemistryStationCoroutine() {
@@ -1099,7 +1458,11 @@ namespace AutomatedTasksMod {
 		[HarmonyPatch(typeof(LabOvenCanvas), "BeginButtonPressed")]
 		public static class LabOvenCanvasPatch {
 			private static void Postfix(LabOvenCanvas __instance) {
-				MelonCoroutines.Start(AutomateLabOvenCoroutine());
+				if(labOvenTask.Value) {
+					MelonCoroutines.Start(AutomateLabOvenCoroutine());
+				} else {
+					Melon<Mod>.Logger.Msg("Automate lab oven disabled in settings");
+				}
 			}
 
 			static System.Collections.IEnumerator AutomateLabOvenCoroutine() {
@@ -1263,243 +1626,14 @@ namespace AutomatedTasksMod {
 			}
 		}
 
-		[HarmonyPatch(typeof(PackagingStationMk2), "StartTask")]
-		public static class PackagingStationMk2Patch {
-			private static void Postfix(PackagingStationMk2 __instance) {
-				MelonCoroutines.Start(AutomatePackagingStationMk2Coroutine(__instance));
-			}
-
-			static System.Collections.IEnumerator AutomatePackagingStationMk2Coroutine(PackagingStationMk2 packagingStationMk2) {
-				PackagingTool packagingTool;
-				FunctionalPackaging functionalPackaging = null;
-				int maxProductsInPackaging;
-				int numFinishedPackaging;
-				bool stepComplete;
-				bool stepComplete2;
-				float time;
-
-				Melon<Mod>.Logger.Msg("Packaging station MK2 task started");
-
-				yield return new WaitForSeconds(0.5f);
-
-				if(NullCheck(packagingStationMk2, "Can't find packaging station MK2 - probably exited task"))
-					yield break;
-
-				packagingTool = packagingStationMk2.GetComponentInChildren<PackagingTool>();
-
-				if(NullCheck([packagingTool, packagingTool.PackagingContainer], "Can't find packaging tool - probably exited task"))
-					yield break;
-
-				stepComplete = false;
-
-				//We can only ever have up to 20 products so this is a failsafe
-				for(int i = 0; i < 20; i++) {
-					Melon<Mod>.Logger.Msg("Dropping product");
-
-					packagingTool.DropProduct();
-
-					Melon<Mod>.Logger.Msg("Waiting for packaging's contents to update");
-
-					maxProductsInPackaging = functionalPackaging?.GetComponentsInChildren<FunctionalProduct>().Length ?? 0;
-
-					stepComplete2 = false;
-					time = 0;
-
-					//Up to 3 seconds
-					while(time < 3) {
-						if(NullCheck([packagingTool, packagingTool.PackagingContainer], "Can't find packaging tool - probably exited task"))
-							yield break;
-
-						functionalPackaging = packagingTool.PackagingContainer.GetComponentsInChildren<FunctionalPackaging>().FirstOrDefault(fp => fp.GetComponentsInChildren<FunctionalProduct>().Length > maxProductsInPackaging);
-
-						if(!NullCheck(functionalPackaging)) {
-							Melon<Mod>.Logger.Msg("Packaging's contents incremented");
-							stepComplete2 = true;
-							break;
-						}
-
-						time += Time.deltaTime;
-
-						yield return null;
-					}
-
-					if(!stepComplete2) {
-						Melon<Mod>.Logger.Msg("Packaging's contents didn't increment after 3 seconds");
-						yield break;
-					}
-
-					if(functionalPackaging.IsFull) {
-						Melon<Mod>.Logger.Msg("Packaging is full - rotating conveyor");
-
-						functionalPackaging = null;
-						maxProductsInPackaging = 0;
-
-						numFinishedPackaging = packagingTool.FinalizedPackaging.Count;
-
-						stepComplete2 = false;
-						time = 0;
-
-						//Up to 3 seconds
-						while(time < 3) {
-							if(NullCheck([packagingStationMk2, packagingTool, packagingTool.PackagingContainer], "Can't find packaging tool - probably exited task"))
-								yield break;
-
-							packagingTool.conveyorVelocity = 1f;
-
-							if(packagingTool.finalizeCoroutine != null) {
-								Melon<Mod>.Logger.Msg("Full packaging kicked to hatch");
-								stepComplete2 = true;
-								break;
-							}
-
-							time += Time.deltaTime;
-
-							yield return null;
-						}
-
-						if(!stepComplete2) {
-							Melon<Mod>.Logger.Msg("Full packaging wasn't kicked into hatch after 3 seconds");
-							yield break;
-						}
-
-						stepComplete2 = false;
-						time = 0;
-
-						while(time < 3) {
-							if(packagingTool.finalizeCoroutine == null) {
-								stepComplete2 = true;
-								break;
-							}
-
-							time += Time.deltaTime;
-
-							yield return null;
-						}
-
-						if(!stepComplete2) {
-							Melon<Mod>.Logger.Msg("Kick animation didn't end after 3 seconds");
-							yield break;
-						}
-
-						if(packagingTool.PackagingContainer.childCount == 0) {
-							Melon<Mod>.Logger.Msg("Done packaging or exited task");
-							stepComplete = true;
-							break;
-						}
-					}
-				}
-
-				if(!stepComplete) {
-					Melon<Mod>.Logger.Msg("Packaging didn't complete after 20 attempts");
-					yield break;
-				}
-			}
-		}
-
-		[HarmonyPatch(typeof(BrickPressCanvas), "BeginButtonPressed")]
-		public static class BrickPressCanvasPatch {
-			private static void Postfix(CauldronCanvas __instance) {
-				MelonCoroutines.Start(AutomateBrickPressCoroutine());
-			}
-
-			static System.Collections.IEnumerator AutomateBrickPressCoroutine() {
-				BrickPress brickPress;
-				Vector3 positionModifier;
-				bool callbackError;
-
-				Melon<Mod>.Logger.Msg("Brick press task started");
-
-				yield return new WaitForSeconds(0.5f);
-
-				brickPress = GameObject.FindObjectsOfType<BrickPress>().FirstOrDefault(b => b.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? false);
-
-				if(NullCheck([brickPress, brickPress?.ContainerSpawnPoint, brickPress?.MouldDetection], "Can't find the brick press the player is using"))
-					yield break;
-
-				Melon<Mod>.Logger.Msg("Moving products up");
-
-				IEnumerable<FunctionalProduct> products = GameObject.FindObjectsOfType<FunctionalProduct>().Where(d => d.transform.position.MaxComponentDifference(brickPress.ContainerSpawnPoint.transform.position) < 1f);
-
-				if(!products.Any()) {
-					Melon<Mod>.Logger.Msg("Can't find products - probably exited task");
-					yield break;
-				}
-
-				foreach(FunctionalProduct product in products) {
-					product.GetComponent<Rigidbody>().useGravity = false;
-				}
-
-				positionModifier = new Vector3(0, 0.3f, 0);
-
-				callbackError = false;
-
-				yield return SinusoidalLerpPositionsCoroutine([.. products.Select(f => f.transform)], positionModifier, 1f, () => callbackError = true);
-
-				if(callbackError) {
-					Melon<Mod>.Logger.Msg("Can't find product to move - probably exited task");
-					yield break;
-				}
-
-				Melon<Mod>.Logger.Msg("Moving products right");
-
-				if(NullCheck([brickPress, brickPress?.ContainerSpawnPoint, brickPress?.MouldDetection], "Can't find mold - probably exited task"))
-					yield break;
-
-				if(!products.Any()) {
-					Melon<Mod>.Logger.Msg("Can't find products - probably exited task");
-					yield break;
-				}
-
-				positionModifier = new Vector3(brickPress.MouldDetection.transform.position.x - brickPress.ContainerSpawnPoint.position.x, 0, brickPress.MouldDetection.transform.position.z - brickPress.ContainerSpawnPoint.position.z);
-
-				callbackError = false;
-
-				yield return SinusoidalLerpPositionsCoroutine([.. products.Select(f => f.transform)], positionModifier, 1f, () => callbackError = true);
-
-				if(callbackError) {
-					Melon<Mod>.Logger.Msg("Can't find product to move - probably exited task");
-					yield break;
-				}
-
-				foreach(FunctionalProduct product in products) {
-					product.GetComponent<Rigidbody>().useGravity = true;
-				}
-
-				yield return new WaitForSeconds(1f);
-
-				Melon<Mod>.Logger.Msg("Pulling down handle");
-
-				callbackError = false;
-
-				yield return LerpFloatCallbackCoroutine(0, 1, 1f, f => {
-					if(NullCheck([brickPress, brickPress?.Handle])) {
-						callbackError = true;
-						return false;
-					}
-
-					brickPress.Handle.CurrentPosition = f;
-
-					return true;
-				});
-
-				if(callbackError) {
-					Melon<Mod>.Logger.Msg("Can't find handle to move - probably exited task");
-					yield break;
-				}
-
-				if(NullCheck([brickPress, brickPress?.Handle], "Can't find handle - probably exited task"))
-					yield break;
-
-				brickPress.Handle.CurrentPosition = 2;
-
-				Melon<Mod>.Logger.Msg("Done with brick press");
-			}
-		}
-
 		[HarmonyPatch(typeof(CauldronCanvas), "BeginButtonPressed")]
 		public static class CauldronCanvasPatch {
 			private static void Postfix(CauldronCanvas __instance) {
-				MelonCoroutines.Start(AutomateCauldronCoroutine());
+				if(cauldronTask.Value) {
+					MelonCoroutines.Start(AutomateCauldronCoroutine());
+				} else {
+					Melon<Mod>.Logger.Msg("Automate cauldron disabled in settings");
+				}
 			}
 
 			static System.Collections.IEnumerator AutomateCauldronCoroutine() {
@@ -1650,6 +1784,10 @@ namespace AutomatedTasksMod {
 
 		static bool IsPackagingStationInUse(PackagingStation packagingStation) {
 			return packagingStation.Container.childCount > 0;
+		}
+
+		static bool IsPackagingStationMk2InUse(PackagingStationMk2 packagingStationMk2) {
+			return packagingStationMk2.visualsLocked;
 		}
 
 		static bool IsMixingStationInUse(MixingStation mixingStation) {

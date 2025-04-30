@@ -173,6 +173,9 @@
 		<Reference Include="Il2Cpp__Generated">
 			<HintPath>K:\SteamLibrary\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\Il2Cpp__Generated.dll</HintPath>
 		</Reference>
+		<Reference Include="ModManager&amp;PhoneApp">
+		  <HintPath>ModManager&amp;PhoneApp.dll</HintPath>
+		</Reference>
 		<Reference Include="Unity.AI.Navigation">
 			<HintPath>K:\SteamLibrary\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\Unity.AI.Navigation.dll</HintPath>
 		</Reference>
