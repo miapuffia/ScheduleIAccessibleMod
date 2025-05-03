@@ -469,6 +469,9 @@
 	<ItemGroup>
 		<Compile Include="Extensions.cs" />
 		<Compile Include="Mod.cs" />
+		<Compile Include="Prefs.cs" />
+		<Compile Include="PrettyInt.cs" />
+		<Compile Include="SpeedEnum.cs" />
 	</ItemGroup>
 
 	<ItemGroup>

@@ -25,28 +25,13 @@ using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(AutomatedTasksMod.Mod), "AutomatedTasksMod", "0.4.0", "Robert Rioja")]
+[assembly: MelonInfo(typeof(AutomatedTasksMod.Mod), "AutomatedTasksMod", "0.5.0", "Robert Rioja")]
 [assembly: MelonColor(1, 255, 20, 147)]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
 namespace AutomatedTasksMod {
-	public class Mod : MelonMod {
-		private static MelonPreferences_Category taskToggles;
-		private static MelonPreferences_Entry<bool> pourSoilTask;
-		private static MelonPreferences_Entry<bool> sowSeedTask;
-		private static MelonPreferences_Entry<bool> pourWaterTask;
-		private static MelonPreferences_Entry<bool> pourFertilizerTask;
-		private static MelonPreferences_Entry<bool> harvestTask;
-		private static MelonPreferences_Entry<bool> sinkTask;
-		private static MelonPreferences_Entry<bool> packagingTask;
-		private static MelonPreferences_Entry<bool> packagingMK2Task;
-		private static MelonPreferences_Entry<bool> brickPressTask;
-		private static MelonPreferences_Entry<bool> mixingTask;
-		private static MelonPreferences_Entry<bool> chemistryTask;
-		private static MelonPreferences_Entry<bool> labOvenTask;
-		private static MelonPreferences_Entry<bool> cauldronTask;
-
-		public static Vector3[] labOvenTrayPositionOffsets = [
+	public partial class Mod : MelonMod {
+		private static readonly Vector3[] labOvenTrayPositionOffsets = [
 			new Vector3(0, 0, 0),
 			new Vector3(0, 0, 0.1f),
 			new Vector3(0, 0, -0.1f),
@@ -59,21 +44,7 @@ namespace AutomatedTasksMod {
 		];
 
 		public override void OnInitializeMelon() {
-			taskToggles = MelonPreferences.CreateCategory("AutomatedTasksMod_01_TaskToggles", "Task Toggles");
-
-			pourSoilTask = taskToggles.CreateEntry<bool>("automate_01_PourSoil", true, "Automate pouring soil");
-			sowSeedTask = taskToggles.CreateEntry<bool>("automate_02_SowSeed", true, "Automate sowing seeds");
-			pourWaterTask = taskToggles.CreateEntry<bool>("automate_03_PourWater", true, "Automate pouring water");
-			pourFertilizerTask = taskToggles.CreateEntry<bool>("automate_04_PourFertilizer", true, "Automate pouring fertilizer");
-			harvestTask = taskToggles.CreateEntry<bool>("automate_05_Harvest", true, "Automate harvesting");
-			sinkTask = taskToggles.CreateEntry<bool>("automate_06_Sink", true, "Automate sink tap");
-			packagingTask = taskToggles.CreateEntry<bool>("automate_07_Packaging", true, "Automate packaging station");
-			packagingMK2Task = taskToggles.CreateEntry<bool>("automate_08_PackagingMK2", true, "Automate packaging MK2 station");
-			brickPressTask = taskToggles.CreateEntry<bool>("automate_09_BrickPress", true, "Automate brick press station");
-			mixingTask = taskToggles.CreateEntry<bool>("automate_10_Mixing", true, "Automate mixing station");
-			chemistryTask = taskToggles.CreateEntry<bool>("automate_11_Chemistry", true, "Automate chemistry station");
-			labOvenTask = taskToggles.CreateEntry<bool>("automate_12_LabOven", true, "Automate lab oven");
-			cauldronTask = taskToggles.CreateEntry<bool>("automate_13_Cauldron", true, "Automate cauldron");
+			SetupPrefs();
 		}
 
 		[HarmonyPatch(typeof(InputPromptsCanvas), "LoadModule", [typeof(string)])]
@@ -81,10 +52,13 @@ namespace AutomatedTasksMod {
 			private static void Postfix(InputPromptsCanvas __instance) {
 				switch(__instance.currentModuleLabel) {
 					case "pourable":
-						MelonCoroutines.Start(AutomatePourTask());
+						MelonCoroutines.Start(AutomatePouringSoilCoroutine());
+						MelonCoroutines.Start(AutomateSowingSeedCoroutine());
+						MelonCoroutines.Start(AutomatePouringWaterCoroutine());
+						MelonCoroutines.Start(AutomatePouringFertilizerCoroutine());
 						break;
 					case "harvestplant":
-						if(harvestTask.Value) {
+						if(harvestingToggle.Value) {
 							MelonCoroutines.Start(AutomateHarvestingCoroutine());
 						} else {
 							Melon<Mod>.Logger.Msg("Automate harvesting disabled in settings");
@@ -93,61 +67,31 @@ namespace AutomatedTasksMod {
 				}
 			}
 
-			static System.Collections.IEnumerator AutomatePourTask() {
-				yield return new WaitForSeconds(0.5f);
-
-				PourableSoil soil = GameObject.FindObjectsOfType<PourableSoil>().FirstOrDefault(p => p.TargetPot?.PlayerUserObject.GetComponent<Player>()?.IsLocalPlayer ?? false);
-
-				if(!NullCheck(soil)) {
-					if(pourSoilTask.Value) {
-						yield return AutomatePouringSoilCoroutine(soil);
-						yield break;
-					} else {
-						Melon<Mod>.Logger.Msg("Automate pouring soil disabled in settings");
-					}
-				}
-
-				FunctionalSeed seed = GameObject.FindObjectOfType<FunctionalSeed>();
-
-				if(!NullCheck(seed)) {
-					if(sowSeedTask.Value) {
-						yield return AutomateSowingSeedCoroutine(seed);
-						yield break;
-					} else {
-						Melon<Mod>.Logger.Msg("Automate sowing seeds disabled in settings");
-					}
-				}
-
-				FunctionalWateringCan wateringCan = GameObject.FindObjectOfType<FunctionalWateringCan>();
-
-				if(!NullCheck(wateringCan)) {
-					if(pourWaterTask.Value) {
-						yield return AutomatePouringWaterCoroutine(wateringCan);
-						yield break;
-					} else {
-						Melon<Mod>.Logger.Msg("Automate pouring water disabled in settings");
-					}
-				}
-
-				PourableAdditive fertilizer = GameObject.FindObjectsOfType<PourableAdditive>().FirstOrDefault(m => m.TargetPot?.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? false);
-
-				if(!NullCheck(fertilizer)) {
-					if(pourFertilizerTask.Value) {
-						yield return AutomatePouringFertilizerCoroutine(fertilizer);
-						yield break;
-					} else {
-						Melon<Mod>.Logger.Msg("Automate pouring fertilizer disabled in settings");
-					}
-				}
-			}
-
-			static System.Collections.IEnumerator AutomatePouringSoilCoroutine(PourableSoil soil) {
+			static System.Collections.IEnumerator AutomatePouringSoilCoroutine() {
 				bool stepComplete;
 				bool callbackError;
 
-				stepComplete = false;
+				float _waitBeforeStartingPouringSoilTask = GetTiming(waitBeforeStartingPouringSoilTask);
+				bool _pouringSoilToggle = pouringSoilToggle.Value;
+				float _waitBetweenSoilCuts = GetTiming(waitBetweenSoilCuts);
+				float _waitBeforeRotatingSoil = GetTiming(waitBeforeRotatingSoil);
+				float _timeToRotateSoil = GetTiming(timeToRotateSoil);
+
+				yield return new WaitForSeconds(_waitBeforeStartingPouringSoilTask);
+
+				PourableSoil soil = GameObject.FindObjectsOfType<PourableSoil>().FirstOrDefault(p => p.TargetPot?.PlayerUserObject.GetComponent<Player>()?.IsLocalPlayer ?? false);
+
+				if(NullCheck(soil)) {
+					//Don't print error message because we might not even be trying to do this task
+					yield break;
+				} else if(!_pouringSoilToggle) {
+					Melon<Mod>.Logger.Msg("Automate pouring soil disabled in settings");
+					yield break;
+				}
 
 				Melon<Mod>.Logger.Msg("Pour soil task started");
+
+				stepComplete = false;
 
 				//It shouldn't take more than 10 cuts so this is a failsafe
 				for(int i = 0; i < 10; i++) {
@@ -168,7 +112,7 @@ namespace AutomatedTasksMod {
 						break;
 					}
 
-					yield return new WaitForSeconds(0.1f);
+					yield return new WaitForSeconds(_waitBetweenSoilCuts);
 				}
 
 				if(!stepComplete) {
@@ -176,7 +120,7 @@ namespace AutomatedTasksMod {
 					yield break;
 				}
 
-				yield return new WaitForSeconds(0.2f);
+				yield return new WaitForSeconds(_waitBeforeRotatingSoil);
 
 				Melon<Mod>.Logger.Msg("Pouring soil");
 
@@ -190,7 +134,7 @@ namespace AutomatedTasksMod {
 
 				callbackError = false;
 
-				yield return SinusoidalLerpRotationCoroutine(soil.transform, new Vector3(soil.transform.localEulerAngles.x, soil.transform.localEulerAngles.y, soil.transform.localEulerAngles.z - 180), 1.5f, () => callbackError = true);
+				yield return SinusoidalLerpRotationCoroutine(soil.transform, new Vector3(soil.transform.localEulerAngles.x, soil.transform.localEulerAngles.y, soil.transform.localEulerAngles.z - 180), _timeToRotateSoil, () => callbackError = true);
 
 				if(callbackError) {
 					Melon<Mod>.Logger.Msg("Can't find soil to rotate - probably exited task");
@@ -200,10 +144,29 @@ namespace AutomatedTasksMod {
 				Melon<Mod>.Logger.Msg("Done pouring soil");
 			}
 
-			static System.Collections.IEnumerator AutomateSowingSeedCoroutine(FunctionalSeed seed) {
+			static System.Collections.IEnumerator AutomateSowingSeedCoroutine() {
 				Pot pot;
 				Vector3 moveToPosition;
 				bool callbackError;
+
+				float _waitBeforeStartingSowingSeedTask = GetTiming(waitBeforeStartingSowingSeedTask);
+				bool _sowingSeedToggle = sowingSeedToggle.Value;
+				float _timeToMoveAndRotateSeedVial = GetTiming(timeToMoveAndRotateSeedVial);
+				float _waitBeforePoppingSeedVialCap = GetTiming(waitBeforePoppingSeedVialCap);
+				float _waitBeforeMovingDirtChunks = GetTiming(waitBeforeMovingDirtChunks);
+				float _waitBetweenMovingSoilChunks = GetTiming(waitBetweenMovingSoilChunks);
+
+				yield return new WaitForSeconds(_waitBeforeStartingSowingSeedTask);
+
+				FunctionalSeed seed = GameObject.FindObjectOfType<FunctionalSeed>();
+
+				if(NullCheck(seed)) {
+					//Don't print error message because we might not even be trying to do this task
+					yield break;
+				} else if(!_sowingSeedToggle) {
+					Melon<Mod>.Logger.Msg("Automate sowing seeds disabled in settings");
+					yield break;
+				}
 
 				Melon<Mod>.Logger.Msg("Sow seed task started");
 				Melon<Mod>.Logger.Msg("Moving and rotating seed vial");
@@ -218,14 +181,14 @@ namespace AutomatedTasksMod {
 
 				callbackError = false;
 
-				yield return SinusoidalLerpPositionAndRotationCoroutine(seed.Vial.transform, moveToPosition, new Vector3(seed.Vial.transform.localEulerAngles.x + 180, seed.Vial.transform.localEulerAngles.y, seed.Vial.transform.localEulerAngles.z), 1.5f, () => callbackError = true);
+				yield return SinusoidalLerpPositionAndRotationCoroutine(seed.Vial.transform, moveToPosition, new Vector3(seed.Vial.transform.localEulerAngles.x + 180, seed.Vial.transform.localEulerAngles.y, seed.Vial.transform.localEulerAngles.z), _timeToMoveAndRotateSeedVial, () => callbackError = true);
 
 				if(callbackError) {
 					Melon<Mod>.Logger.Msg("Can't find seed vial to move and rotate - probably exited task");
 					yield break;
 				}
 
-				yield return new WaitForSeconds(0.2f);
+				yield return new WaitForSeconds(_waitBeforePoppingSeedVialCap);
 
 				if(NullCheck([seed, seed.Cap], "Can't find seed cap - probably exited task"))
 					yield break;
@@ -233,7 +196,7 @@ namespace AutomatedTasksMod {
 				Melon<Mod>.Logger.Msg("Popping seed cap");
 				seed.Cap.Pop();
 
-				yield return new WaitForSeconds(0.5f);
+				yield return new WaitForSeconds(_waitBeforeMovingDirtChunks);
 
 				pot = GameObject.FindObjectsOfType<Pot>().FirstOrDefault(p => p.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? false);
 
@@ -256,13 +219,13 @@ namespace AutomatedTasksMod {
 					Melon<Mod>.Logger.Msg("Moving soil chunk");
 					soilChunk.StartClick(new RaycastHit());
 
-					yield return new WaitForSeconds(0.5f);
+					yield return new WaitForSeconds(_waitBetweenMovingSoilChunks);
 				}
 
 				Melon<Mod>.Logger.Msg("Done sowing seed");
 			}
 
-			static System.Collections.IEnumerator AutomatePouringWaterCoroutine(FunctionalWateringCan wateringCan) {
+			static System.Collections.IEnumerator AutomatePouringWaterCoroutine() {
 				Vector3 moveToPosition;
 				Pot pot;
 				bool stepComplete;
@@ -270,12 +233,29 @@ namespace AutomatedTasksMod {
 				bool callbackError;
 				float time;
 
+				float _waitBeforeStartingPouringWaterTask = GetTiming(waitBeforeStartingPouringWaterTask);
+				bool _pouringWaterToggle = pouringWaterToggle.Value;
+				float _timeToRotateWateringCan = GetTiming(timeToRotateWateringCan);
+				float _timeToMoveWateringCan = GetTiming(timeToMoveWateringCan);
+
+				yield return new WaitForSeconds(_waitBeforeStartingPouringWaterTask);
+
+				FunctionalWateringCan wateringCan = GameObject.FindObjectOfType<FunctionalWateringCan>();
+
+				if(NullCheck(wateringCan)) {
+					//Don't print error message because we might not even be trying to do this task
+					yield break;
+				} else if(!_pouringWaterToggle) {
+					Melon<Mod>.Logger.Msg("Automate pouring water disabled in settings");
+					yield break;
+				}
+
 				Melon<Mod>.Logger.Msg("Water soil task started");
 				Melon<Mod>.Logger.Msg("Rotating watering can");
 
 				callbackError = false;
 
-				yield return SinusoidalLerpRotationCoroutine(wateringCan.transform, new Vector3(wateringCan.transform.localEulerAngles.x, wateringCan.transform.localEulerAngles.y, wateringCan.transform.localEulerAngles.z - 90), 0.8f, () => callbackError = true);
+				yield return SinusoidalLerpRotationCoroutine(wateringCan.transform, new Vector3(wateringCan.transform.localEulerAngles.x, wateringCan.transform.localEulerAngles.y, wateringCan.transform.localEulerAngles.z - 90), _timeToRotateWateringCan, () => callbackError = true);
 
 				if(callbackError) {
 					Melon<Mod>.Logger.Msg("Can't find watering can to rotate - probably exited task");
@@ -314,7 +294,7 @@ namespace AutomatedTasksMod {
 
 					callbackError = false;
 
-					yield return SinusoidalLerpPositionCoroutine(wateringCan.transform, moveToPosition, 0.8f, () => callbackError = true);
+					yield return SinusoidalLerpPositionCoroutine(wateringCan.transform, moveToPosition, _timeToMoveWateringCan, () => callbackError = true);
 
 					if(callbackError) {
 						Melon<Mod>.Logger.Msg("Can't find watering can to move - probably exited task");
@@ -358,19 +338,36 @@ namespace AutomatedTasksMod {
 				}
 			}
 
-			static System.Collections.IEnumerator AutomatePouringFertilizerCoroutine(PourableAdditive fertilizer) {
+			static System.Collections.IEnumerator AutomatePouringFertilizerCoroutine() {
 				Pot pot;
 				Vector3 targetPosition;
 				Vector3 moveToPosition;
 				bool stepComplete;
 				bool callbackError;
 
+				float _waitBeforeStartingPouringFertilizerTask = GetTiming(waitBeforeStartingPouringFertilizerTask);
+				bool _pouringFertilizerToggle = pouringFertilizerToggle.Value;
+				float _timeToRotateFertilizer = GetTiming(timeToRotateFertilizer);
+				float _timeToMoveFertilizer = GetTiming(timeToMoveFertilizer);
+
+				yield return new WaitForSeconds(_waitBeforeStartingPouringFertilizerTask);
+
+				PourableAdditive fertilizer = GameObject.FindObjectsOfType<PourableAdditive>().FirstOrDefault(m => m.TargetPot?.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? false);
+
+				if(NullCheck(fertilizer)) {
+					//Don't print error message because we might not even be trying to do this task
+					yield break;
+				} else if(!_pouringFertilizerToggle) {
+					Melon<Mod>.Logger.Msg("Automate pouring fertilizer disabled in settings");
+					yield break;
+				}
+
 				Melon<Mod>.Logger.Msg("Pour fertilizer task started");
 				Melon<Mod>.Logger.Msg("Rotating fertilizer");
 
 				callbackError = false;
 
-				yield return SinusoidalLerpRotationCoroutine(fertilizer.transform, new Vector3(fertilizer.transform.localEulerAngles.x, fertilizer.transform.localEulerAngles.y, fertilizer.transform.localEulerAngles.z - 180), 1, () => callbackError = true);
+				yield return SinusoidalLerpRotationCoroutine(fertilizer.transform, new Vector3(fertilizer.transform.localEulerAngles.x, fertilizer.transform.localEulerAngles.y, fertilizer.transform.localEulerAngles.z - 180), _timeToRotateFertilizer, () => callbackError = true);
 
 				if(callbackError) {
 					Melon<Mod>.Logger.Msg("Can't find fertilizer to rotate - probably exited task");
@@ -405,7 +402,7 @@ namespace AutomatedTasksMod {
 
 					callbackError = false;
 
-					yield return LerpPositionCoroutine(fertilizer.transform, moveToPosition, 0.10f, () => callbackError = true);
+					yield return LerpPositionCoroutine(fertilizer.transform, moveToPosition, _timeToMoveFertilizer, () => callbackError = true);
 
 					if(callbackError) {
 						if(NullCheck(pot, "Can't find fertilizer's pot - probably exited task"))
@@ -437,16 +434,18 @@ namespace AutomatedTasksMod {
 			static System.Collections.IEnumerator AutomateHarvestingCoroutine() {
 				Pot usingPot;
 
+				float _waitBeforeStartingHarvestingTask = GetTiming(waitBeforeStartingHarvestingTask);
+
 				Melon<Mod>.Logger.Msg("Harvest task started");
 
-				yield return new WaitForSeconds(0.5f);
+				yield return new WaitForSeconds(_waitBeforeStartingHarvestingTask);
 
 				usingPot = GameObject.FindObjectsOfType<Pot>().FirstOrDefault(p => p.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? false);
 
 				if(NullCheck(usingPot, "Can't find the pot the player is using - probably exited task"))
 					yield break;
 
-				float harvestCooldown = IsUsingElectricTrimmers(usingPot.PlayerUserObject.GetComponent<Player>()) ? 0.25f : 0.5f;
+				float harvestCooldown = IsUsingElectricTrimmers(usingPot.PlayerUserObject.GetComponent<Player>()) ? GetTiming(waitBetweenHarvestingPiecesElectric) : GetTiming(waitBetweenHarvestingPieces);
 
 				foreach(PlantHarvestable harvestable in usingPot.GetComponentsInChildren<PlantHarvestable>()) {
 					if(!usingPot.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? true) {
@@ -508,7 +507,7 @@ namespace AutomatedTasksMod {
 		[HarmonyPatch(typeof(Tap), "Interacted")]
 		public static class TapPatch {
 			private static void Postfix(Tap __instance) {
-				if(sinkTask.Value) {
+				if(sinkToggle.Value) {
 					MelonCoroutines.Start(AutomateSinkCoroutine(__instance));
 				} else {
 					Melon<Mod>.Logger.Msg("Automate sink tap disabled in settings");
@@ -516,9 +515,11 @@ namespace AutomatedTasksMod {
 			}
 
 			static System.Collections.IEnumerator AutomateSinkCoroutine(Tap tap) {
+				float _waitBeforeStartingSinkTask = GetTiming(waitBeforeStartingSinkTask);
+
 				Melon<Mod>.Logger.Msg("Sink task started");
 
-				yield return new WaitForSeconds(0.5f);
+				yield return new WaitForSeconds(_waitBeforeStartingSinkTask);
 
 				if(NullCheck(tap, "Can't find the tap the player is using"))
 					yield break;
@@ -536,7 +537,7 @@ namespace AutomatedTasksMod {
 		[HarmonyPatch(typeof(PackagingStation), "StartTask")]
 		public static class PackagingStationPatch {
 			private static void Postfix(PackagingStation __instance) {
-				if(packagingTask.Value) {
+				if(packagingStationToggle.Value) {
 					MelonCoroutines.Start(AutomatePackagingStationCoroutine(__instance));
 				} else {
 					Melon<Mod>.Logger.Msg("Automate packaging station disabled in settings");
@@ -550,9 +551,15 @@ namespace AutomatedTasksMod {
 				bool callbackError;
 				float time;
 
+				float _waitBeforeStartingPackagingTask = GetTiming(waitBeforeStartingPackagingTask);
+				float _timeToMoveProductToPackaging = GetTiming(timeToMoveProductToPackaging);
+				float _waitBeforeMovingPackagingToHatch = GetTiming(waitBeforeMovingPackagingToHatch);
+				float _timeToMovePackagingToHatch = GetTiming(timeToMovePackagingToHatch);
+				float _waitAfterMovingPackagingToHatch = GetTiming(waitAfterMovingPackagingToHatch);
+
 				Melon<Mod>.Logger.Msg("Packaging station task started");
 
-				yield return new WaitForSeconds(0.5f);
+				yield return new WaitForSeconds(_waitBeforeStartingPackagingTask);
 
 				if(NullCheck([packagingStation, packagingStation.Container], "Can't find packaging station - probably exited task"))
 					yield break;
@@ -590,7 +597,7 @@ namespace AutomatedTasksMod {
 
 						callbackError = false;
 
-						yield return SinusoidalLerpPositionCoroutine(product.gameObject.transform, moveToPosition, 0.5f, () => callbackError = true);
+						yield return SinusoidalLerpPositionCoroutine(product.gameObject.transform, moveToPosition, _timeToMoveProductToPackaging, () => callbackError = true);
 
 						if(callbackError) {
 							Melon<Mod>.Logger.Msg("Can't find product to move - probably exited task");
@@ -634,7 +641,7 @@ namespace AutomatedTasksMod {
 							yield break;
 						}
 
-						yield return new WaitForSeconds(0.2f);
+						yield return new WaitForSeconds(_waitBeforeMovingPackagingToHatch);
 
 						if(NullCheck([packagingStation, packagingStation.OutputCollider, packaging], "Can't find packaging - probably exited task"))
 							yield break;
@@ -651,14 +658,17 @@ namespace AutomatedTasksMod {
 
 							callbackError = false;
 
-							yield return SinusoidalLerpPositionCoroutine(packaging.gameObject.transform, moveToPosition, 0.3f, () => callbackError = true);
+							yield return SinusoidalLerpPositionCoroutine(packaging.gameObject.transform, moveToPosition, _timeToMovePackagingToHatch, () => callbackError = true);
 
 							if(callbackError) {
 								Melon<Mod>.Logger.Msg("Can't find packaging to move - probably exited task");
 								yield break;
 							}
 
-							yield return new WaitForSeconds(0.8f);
+							yield return new WaitForSeconds(_waitAfterMovingPackagingToHatch);
+
+							if(NullCheck([packagingStation, packagingStation.Container], "Can't find packaging station - probably exited task"))
+								yield break;
 
 							if(!IsPackagingStationInUse(packagingStation)) {
 								Melon<Mod>.Logger.Msg("Done packaging");
@@ -666,6 +676,8 @@ namespace AutomatedTasksMod {
 							}
 						}
 					}
+
+					yield return null;
 				}
 			}
 		}
@@ -673,7 +685,7 @@ namespace AutomatedTasksMod {
 		[HarmonyPatch(typeof(PackagingStationMk2), "StartTask")]
 		public static class PackagingStationMk2Patch {
 			private static void Postfix(PackagingStationMk2 __instance) {
-				if(packagingMK2Task.Value) {
+				if(packagingStationMk2Toggle.Value) {
 					MelonCoroutines.Start(AutomatePackagingStationMk2Coroutine(__instance));
 				} else {
 					Melon<Mod>.Logger.Msg("Automate packaging MK2 station disabled in settings");
@@ -688,11 +700,13 @@ namespace AutomatedTasksMod {
 				bool stepComplete;
 				float time;
 
-				Melon<Mod>.Logger.Msg("Packaging station MK2 task started");
+				float _waitBeforeStartingPackagingMk2Task = GetTiming(waitBeforeStartingPackagingMk2Task);
 
-				yield return new WaitForSeconds(0.5f);
+				Melon<Mod>.Logger.Msg("Packaging station Mk2 task started");
 
-				if(NullCheck(packagingStationMk2, "Can't find packaging station MK2 - probably exited task"))
+				yield return new WaitForSeconds(_waitBeforeStartingPackagingMk2Task);
+
+				if(NullCheck(packagingStationMk2, "Can't find packaging station Mk2 - probably exited task"))
 					yield break;
 
 				if(!IsPackagingStationMk2InUse(packagingStationMk2)) {
@@ -832,7 +846,7 @@ namespace AutomatedTasksMod {
 		[HarmonyPatch(typeof(BrickPressCanvas), "BeginButtonPressed")]
 		public static class BrickPressCanvasPatch {
 			private static void Postfix(CauldronCanvas __instance) {
-				if(brickPressTask.Value) {
+				if(brickPressToggle.Value) {
 					MelonCoroutines.Start(AutomateBrickPressCoroutine());
 				} else {
 					Melon<Mod>.Logger.Msg("Automate brick press station disabled in settings");
@@ -844,9 +858,15 @@ namespace AutomatedTasksMod {
 				Vector3 positionModifier;
 				bool callbackError;
 
+				float _waitBeforeStartingBrickPressTask = GetTiming(waitBeforeStartingBrickPressTask);
+				float _timeToMoveProductsToMoldUp = GetTiming(timeToMoveProductsToMoldUp);
+				float _timeToMoveProductsToMoldRight = GetTiming(timeToMoveProductsToMoldRight);
+				float _waitBeforePullingDownHandle = GetTiming(waitBeforePullingDownHandle);
+				float _timeToPullDownHandle = GetTiming(timeToPullDownHandle);
+
 				Melon<Mod>.Logger.Msg("Brick press task started");
 
-				yield return new WaitForSeconds(0.5f);
+				yield return new WaitForSeconds(_waitBeforeStartingBrickPressTask);
 
 				brickPress = GameObject.FindObjectsOfType<BrickPress>().FirstOrDefault(b => b.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? false);
 
@@ -870,7 +890,7 @@ namespace AutomatedTasksMod {
 
 				callbackError = false;
 
-				yield return SinusoidalLerpPositionsCoroutine([.. products.Select(f => f.transform)], positionModifier, 1f, () => callbackError = true);
+				yield return SinusoidalLerpPositionsCoroutine([.. products.Select(f => f.transform)], positionModifier, _timeToMoveProductsToMoldUp, () => callbackError = true);
 
 				if(callbackError) {
 					Melon<Mod>.Logger.Msg("Can't find product to move - probably exited task");
@@ -891,7 +911,7 @@ namespace AutomatedTasksMod {
 
 				callbackError = false;
 
-				yield return SinusoidalLerpPositionsCoroutine([.. products.Select(f => f.transform)], positionModifier, 1f, () => callbackError = true);
+				yield return SinusoidalLerpPositionsCoroutine([.. products.Select(f => f.transform)], positionModifier, _timeToMoveProductsToMoldRight, () => callbackError = true);
 
 				if(callbackError) {
 					Melon<Mod>.Logger.Msg("Can't find product to move - probably exited task");
@@ -902,13 +922,13 @@ namespace AutomatedTasksMod {
 					product.GetComponent<Rigidbody>().useGravity = true;
 				}
 
-				yield return new WaitForSeconds(1f);
+				yield return new WaitForSeconds(_waitBeforePullingDownHandle);
 
 				Melon<Mod>.Logger.Msg("Pulling down handle");
 
 				callbackError = false;
 
-				yield return LerpFloatCallbackCoroutine(0, 1, 1f, f => {
+				yield return LerpFloatCallbackCoroutine(0, 1, _timeToPullDownHandle, f => {
 					if(NullCheck([brickPress, brickPress?.Handle])) {
 						callbackError = true;
 						return false;
@@ -936,7 +956,7 @@ namespace AutomatedTasksMod {
 		[HarmonyPatch(typeof(MixingStationCanvas), "BeginButtonPressed")]
 		public static class MixingStationCanvasPatch {
 			private static void Postfix(MixingStationCanvas __instance) {
-				if(mixingTask.Value) {
+				if(mixingStationToggle.Value) {
 					MelonCoroutines.Start(AutomateMixingStationCoroutine());
 				} else {
 					Melon<Mod>.Logger.Msg("Automate mixing station disabled in settings");
@@ -955,9 +975,17 @@ namespace AutomatedTasksMod {
 				bool callbackError;
 				float time;
 
+				float _waitBeforeStartingMixingStationTask = GetTiming(waitBeforeStartingMixingStationTask);
+				float _timeToMoveProductToMixer = GetTiming(timeToMoveProductToMixer);
+				float _timeToMovePourableToMixer = GetTiming(timeToMovePourableToMixer);
+				float _timeToRotatePourableToMixer = GetTiming(timeToRotatePourableToMixer);
+				float _timeToRotateAndMovePourableFromMixerBack = GetTiming(timeToRotateAndMovePourableFromMixerBack);
+				float _waitBetweenMovingItemsToMixer = GetTiming(waitBetweenMovingItemsToMixer);
+				float _waitBeforePressingMixerStartButton = GetTiming(waitBeforePressingMixerStartButton);
+
 				Melon<Mod>.Logger.Msg("Mixing station task started");
 
-				yield return new WaitForSeconds(0.5f);
+				yield return new WaitForSeconds(_waitBeforeStartingMixingStationTask);
 
 				mixingStation = GameObject.FindObjectsOfType<MixingStation>().FirstOrDefault(m => m.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? false);
 
@@ -996,14 +1024,12 @@ namespace AutomatedTasksMod {
 
 						callbackError = false;
 
-						yield return SinusoidalLerpPositionCoroutine(productPiece.transform, moveToPosition, 0.5f, () => callbackError = true);
+						yield return SinusoidalLerpPositionCoroutine(productPiece.transform, moveToPosition, _timeToMoveProductToMixer, () => callbackError = true);
 
 						if(callbackError) {
 							Melon<Mod>.Logger.Msg("Can't find product piece to move - probably exited task");
 							yield break;
 						}
-
-						yield return new WaitForSeconds(0.3f);
 					} else if(!NullCheck(productBeaker)) {
 						Melon<Mod>.Logger.Msg("Moving beaker to mixer");
 
@@ -1014,7 +1040,7 @@ namespace AutomatedTasksMod {
 
 						callbackError = false;
 
-						yield return SinusoidalLerpPositionCoroutine(productBeaker.transform, moveToPosition, 0.8f, () => callbackError = true);
+						yield return SinusoidalLerpPositionCoroutine(productBeaker.transform, moveToPosition, _timeToMovePourableToMixer, () => callbackError = true);
 
 						if(callbackError) {
 							Melon<Mod>.Logger.Msg("Can't find beaker - probably exited task");
@@ -1026,7 +1052,7 @@ namespace AutomatedTasksMod {
 						productBeaker.transform.localEulerAngles = Vector3.zero;
 						rotateToAngles = new Vector3(productBeaker.transform.localEulerAngles.x, productBeaker.transform.localEulerAngles.x, productBeaker.transform.localEulerAngles.y + 90);
 
-						yield return SinusoidalLerpPositionAndRotationCoroutine(productBeaker.transform, moveToPosition, rotateToAngles, 2f, () => callbackError = true);
+						yield return SinusoidalLerpPositionAndRotationCoroutine(productBeaker.transform, moveToPosition, rotateToAngles, _timeToRotatePourableToMixer, () => callbackError = true);
 
 						if(callbackError) {
 							Melon<Mod>.Logger.Msg("Can't find beaker to move and rotate - probably exited task");
@@ -1066,21 +1092,21 @@ namespace AutomatedTasksMod {
 
 						callbackError = false;
 
-						yield return SinusoidalLerpPositionAndRotationCoroutine(productBeaker.transform, moveBackToPosition, Vector3.zero, 0.8f, () => callbackError = true);
+						yield return SinusoidalLerpPositionAndRotationCoroutine(productBeaker.transform, moveBackToPosition, Vector3.zero, _timeToRotateAndMovePourableFromMixerBack, () => callbackError = true);
 
 						if(callbackError) {
 							Melon<Mod>.Logger.Msg("Can't find beaker to move and rotate - probably exited task");
 							yield break;
 						}
-
-						yield return new WaitForSeconds(0.3f);
 					} else {
 						Melon<Mod>.Logger.Msg("Can't find product piece or beaker - probably exited task");
 						yield break;
 					}
+
+					yield return new WaitForSeconds(_waitBetweenMovingItemsToMixer);
 				}
 
-				yield return new WaitForSeconds(0.5f);
+				yield return new WaitForSeconds(_waitBeforePressingMixerStartButton);
 
 				if(NullCheck([mixingStation, mixingStation.StartButton], "Can't find mixing station start button - probably exited task"))
 					yield break;
@@ -1101,7 +1127,7 @@ namespace AutomatedTasksMod {
 		[HarmonyPatch(typeof(ChemistryStationCanvas), "BeginButtonPressed")]
 		public static class ChemistryStationCanvasPatch {
 			private static void Postfix(ChemistryStationCanvas __instance) {
-				if(chemistryTask.Value) {
+				if(chemistryStationToggle.Value) {
 					MelonCoroutines.Start(AutomateChemistryStationCoroutine());
 				} else {
 					Melon<Mod>.Logger.Msg("Automate chemistry station disabled in settings");
@@ -1119,9 +1145,26 @@ namespace AutomatedTasksMod {
 				bool callbackError;
 				float time;
 
+				float _waitBeforeStartingChemistryStationTask = GetTiming(waitBeforeStartingChemistryStationTask);
+				float _timeToMoveProductToBeaker = GetTiming(timeToMoveProductToBeaker);
+				float _waitBetweenMovingProductsToBeaker = GetTiming(waitBetweenMovingProductsToBeaker);
+				float _timeToMovePourableToBeaker = GetTiming(timeToMovePourableToBeaker);
+				float _timeToRotatePourableToBeaker = GetTiming(timeToRotatePourableToBeaker);
+				float _timeToRotateAndMovePourableFromBeakerBack = GetTiming(timeToRotateAndMovePourableFromBeakerBack);
+				float _waitBetweenMovingPourablesToBeaker = GetTiming(waitBetweenMovingPourablesToBeaker);
+				float _timeToRotateStirRod = GetTiming(timeToRotateStirRod);
+				float _waitBeforeMovingLabStandDown = GetTiming(waitBeforeMovingLabStandDown);
+				float _timeToMoveLabStandDown = GetTiming(timeToMoveLabStandDown);
+				float _waitBeforeMovingBeakerToFunnel = GetTiming(waitBeforeMovingBeakerToFunnel);
+				float _timeToMoveBeakerToFunnel = GetTiming(timeToMoveBeakerToFunnel);
+				float _timeToRotateBeakerToFunnel = GetTiming(timeToRotateBeakerToFunnel);
+				float _waitBeforeMovingLabStandUp = GetTiming(waitBeforeMovingLabStandUp);
+				float _timeToMoveLabStandUp = GetTiming(timeToMoveLabStandUp);
+				float _waitBeforeHandlingBurner = GetTiming(waitBeforeHandlingBurner);
+
 				Melon<Mod>.Logger.Msg("Chemistry station task started");
 
-				yield return new WaitForSeconds(0.5f);
+				yield return new WaitForSeconds(_waitBeforeStartingChemistryStationTask);
 
 				chemistryStation = GameObject.FindObjectsOfType<ChemistryStation>().FirstOrDefault(m => m.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? false);
 
@@ -1149,14 +1192,14 @@ namespace AutomatedTasksMod {
 
 					callbackError = false;
 
-					yield return SinusoidalLerpPositionCoroutine(ingredient.transform, moveToPosition, 0.5f, () => callbackError = true);
+					yield return SinusoidalLerpPositionCoroutine(ingredient.transform, moveToPosition, _timeToMoveProductToBeaker, () => callbackError = true);
 
 					if(callbackError) {
 						Melon<Mod>.Logger.Msg("Can't find ingredient to move - probably exited task");
 						yield break;
 					}
 
-					yield return new WaitForSeconds(0.3f);
+					yield return new WaitForSeconds(_waitBetweenMovingProductsToBeaker);
 				}
 
 				Melon<Mod>.Logger.Msg("Done moving ingredients to beaker");
@@ -1183,7 +1226,7 @@ namespace AutomatedTasksMod {
 
 					callbackError = false;
 
-					yield return SinusoidalLerpPositionCoroutine(pourable.transform, moveToPosition, 0.8f, () => callbackError = true);
+					yield return SinusoidalLerpPositionCoroutine(pourable.transform, moveToPosition, _timeToMovePourableToBeaker, () => callbackError = true);
 
 					if(callbackError) {
 						Melon<Mod>.Logger.Msg("Can't find pourable to move - probably exited task");
@@ -1192,7 +1235,7 @@ namespace AutomatedTasksMod {
 
 					Melon<Mod>.Logger.Msg("Rotating pourable");
 
-					yield return SinusoidalLerpPositionAndRotationCoroutine(pourable.transform, moveToPosition, new Vector3(pourable.transform.localEulerAngles.x, pourable.transform.localEulerAngles.x, pourable.transform.localEulerAngles.y + 180), 1.5f, () => callbackError = true);
+					yield return SinusoidalLerpPositionAndRotationCoroutine(pourable.transform, moveToPosition, new Vector3(pourable.transform.localEulerAngles.x, pourable.transform.localEulerAngles.x, pourable.transform.localEulerAngles.y + 180), _timeToRotatePourableToBeaker, () => callbackError = true);
 
 					if(callbackError) {
 						Melon<Mod>.Logger.Msg("Can't find pourable to move and rotate - probably exited task");
@@ -1231,14 +1274,14 @@ namespace AutomatedTasksMod {
 
 					callbackError = false;
 
-					yield return SinusoidalLerpPositionAndRotationCoroutine(pourable.transform, moveBackToPosition, Vector3.zero, 0.8f, () => callbackError = true);
+					yield return SinusoidalLerpPositionAndRotationCoroutine(pourable.transform, moveBackToPosition, Vector3.zero, _timeToRotateAndMovePourableFromBeakerBack, () => callbackError = true);
 
 					if(callbackError) {
 						Melon<Mod>.Logger.Msg("Can't find pourable to move and rotate - probably exited task");
 						yield break;
 					}
 
-					yield return new WaitForSeconds(0.3f);
+					yield return new WaitForSeconds(_waitBetweenMovingPourablesToBeaker);
 				}
 
 				Melon<Mod>.Logger.Msg("Moving stirring rod");
@@ -1276,7 +1319,7 @@ namespace AutomatedTasksMod {
 
 						callbackError = false;
 
-						MelonCoroutines.Start(LerpRotationCoroutine(stirringRod.transform, new Vector3(stirringRod.transform.localEulerAngles.x, stirringRod.transform.localEulerAngles.y + 40, stirringRod.transform.localEulerAngles.z), 0.1f, () => callbackError = true));
+						MelonCoroutines.Start(LerpRotationCoroutine(stirringRod.transform, new Vector3(stirringRod.transform.localEulerAngles.x, stirringRod.transform.localEulerAngles.y + 40, stirringRod.transform.localEulerAngles.z), _timeToRotateStirRod, () => callbackError = true));
 
 						if(callbackError) {
 							Melon<Mod>.Logger.Msg("Can't find stir rod to rotate - probably exited task");
@@ -1299,9 +1342,9 @@ namespace AutomatedTasksMod {
 					yield break;
 				}
 
-				yield return new WaitForSeconds(0.5f);
+				yield return new WaitForSeconds(_waitBeforeMovingLabStandDown);
 
-				Melon<Mod>.Logger.Msg("Moving lab stand");
+				Melon<Mod>.Logger.Msg("Moving lab stand down");
 
 				if(NullCheck(chemistryStation, "Can't find chemistry station - probably exited task"))
 					yield break;
@@ -1311,7 +1354,7 @@ namespace AutomatedTasksMod {
 
 				callbackError = false;
 
-				yield return LerpFloatCallbackCoroutine(1, 0, 0.5f, f => {
+				yield return LerpFloatCallbackCoroutine(1, 0, _timeToMoveLabStandDown, f => {
 					if(NullCheck([chemistryStation, chemistryStation?.LabStand]) || !IsChemistryStationInUse(chemistryStation)) {
 						callbackError = true;
 						return false;
@@ -1327,7 +1370,7 @@ namespace AutomatedTasksMod {
 					yield break;
 				}
 
-				yield return new WaitForSeconds(0.5f);
+				yield return new WaitForSeconds(_waitBeforeMovingBeakerToFunnel);
 
 				Melon<Mod>.Logger.Msg("Moving beaker to funnel");
 
@@ -1342,7 +1385,7 @@ namespace AutomatedTasksMod {
 
 				callbackError = false;
 
-				yield return SinusoidalLerpPositionCoroutine(beaker.transform, moveToPosition, 0.8f, () => callbackError = true);
+				yield return SinusoidalLerpPositionCoroutine(beaker.transform, moveToPosition, _timeToMoveBeakerToFunnel, () => callbackError = true);
 
 				if(callbackError) {
 					Melon<Mod>.Logger.Msg("Can't find beaker - probably exited task");
@@ -1354,7 +1397,7 @@ namespace AutomatedTasksMod {
 				beaker.transform.localEulerAngles = Vector3.zero;
 				rotateToAngles = new Vector3(beaker.transform.localEulerAngles.x, beaker.transform.localEulerAngles.x, beaker.transform.localEulerAngles.y + 90);
 
-				yield return SinusoidalLerpPositionAndRotationCoroutine(beaker.transform, moveToPosition, rotateToAngles, 3f, () => callbackError = true);
+				yield return SinusoidalLerpPositionAndRotationCoroutine(beaker.transform, moveToPosition, rotateToAngles, _timeToRotateBeakerToFunnel, () => callbackError = true);
 
 				if(callbackError) {
 					Melon<Mod>.Logger.Msg("Can't find beaker to move and rotate - probably exited task");
@@ -1390,16 +1433,16 @@ namespace AutomatedTasksMod {
 					yield break;
 				}
 
-				yield return new WaitForSeconds(0.5f);
+				yield return new WaitForSeconds(_waitBeforeMovingLabStandUp);
 
-				Melon<Mod>.Logger.Msg("Moving lab stand back");
+				Melon<Mod>.Logger.Msg("Moving lab stand up");
 
 				if(NullCheck([chemistryStation, chemistryStation?.LabStand], "Can't find chemistry station - probably exited task"))
 					yield break;
 
 				callbackError = false;
 
-				yield return LerpFloatCallbackCoroutine(0, 1, 0.5f, f => {
+				yield return LerpFloatCallbackCoroutine(0, 1, _timeToMoveLabStandUp, f => {
 					if(NullCheck([chemistryStation, chemistryStation?.LabStand]) || !IsChemistryStationInUse(chemistryStation)) {
 						callbackError = true;
 						return false;
@@ -1415,7 +1458,7 @@ namespace AutomatedTasksMod {
 					yield break;
 				}
 
-				yield return new WaitForSeconds(0.5f);
+				yield return new WaitForSeconds(_waitBeforeHandlingBurner);
 
 				Melon<Mod>.Logger.Msg("Handling burner");
 
@@ -1458,7 +1501,7 @@ namespace AutomatedTasksMod {
 		[HarmonyPatch(typeof(LabOvenCanvas), "BeginButtonPressed")]
 		public static class LabOvenCanvasPatch {
 			private static void Postfix(LabOvenCanvas __instance) {
-				if(labOvenTask.Value) {
+				if(labOvenToggle.Value) {
 					MelonCoroutines.Start(AutomateLabOvenCoroutine());
 				} else {
 					Melon<Mod>.Logger.Msg("Automate lab oven disabled in settings");
@@ -1468,11 +1511,22 @@ namespace AutomatedTasksMod {
 			static System.Collections.IEnumerator AutomateLabOvenCoroutine() {
 				LabOven labOven;
 				Vector3 moveToPosition;
+				bool stepComplete;
 				bool callbackError;
+				float time;
+
+				float _waitBeforeStartingLabOvenTask = GetTiming(waitBeforeStartingLabOvenTask);
+				float _timeToOpenLabOvenDoor = GetTiming(timeToOpenLabOvenDoor);
+				float _timeToCloseLabOvenDoor = GetTiming(timeToCloseLabOvenDoor);
+				float _waitBeforeMovingProductsToTray = GetTiming(waitBeforeMovingProductsToTray);
+				float _timeToMoveProductToTray = GetTiming(timeToMoveProductToTray);
+				float _waitBetweenMovingProductsToTray = GetTiming(waitBetweenMovingProductsToTray);
+				float _waitBeforeClosingLabOvenDoorCocaine = GetTiming(waitBeforeClosingLabOvenDoorCocaine);
+				float _waitBeforePressingLabOvenStartButton = GetTiming(waitBeforePressingLabOvenStartButton);
 
 				Melon<Mod>.Logger.Msg("Lab oven task started");
 
-				yield return new WaitForSeconds(0.5f);
+				yield return new WaitForSeconds(_waitBeforeStartingLabOvenTask);
 
 				labOven = GameObject.FindObjectsOfType<LabOven>().FirstOrDefault(m => m.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? false);
 
@@ -1487,7 +1541,7 @@ namespace AutomatedTasksMod {
 
 					callbackError = false;
 
-					yield return LerpFloatCallbackCoroutine(0, 1, 0.5f, f => {
+					yield return LerpFloatCallbackCoroutine(0, 1, _timeToOpenLabOvenDoor, f => {
 						if(NullCheck([labOven, labOven?.Door, labOven?.PourableContainer, labOven?.ItemContainer]) || !IsLabOvenInUse(labOven)) {
 							callbackError = true;
 							return false;
@@ -1510,8 +1564,34 @@ namespace AutomatedTasksMod {
 
 					if(labOven.PourableContainer.childCount > 0) {
 						Melon<Mod>.Logger.Msg("Lab oven has pourable");
+						Melon<Mod>.Logger.Msg("Waiting for lab oven door to be closable");
 
-						yield return new WaitForSeconds(3f);
+						stepComplete = false;
+						time = 0;
+
+						if(NullCheck([labOven.LiquidMesh, labOven.Door], "Can't find lab oven - probably exited task"))
+							yield break;
+
+						//Up to 5 seconds
+						while(time < 5) {
+							if(NullCheck([labOven, labOven?.LiquidMesh, labOven?.Door], "Can't find lab oven - probably exited task"))
+								yield break;
+
+							if(labOven.LiquidMesh.gameObject.activeSelf && labOven.Door.Interactable) {
+								Melon<Mod>.Logger.Msg("Lab oven door is closable");
+								stepComplete = true;
+								break;
+							}
+
+							time += Time.deltaTime;
+
+							yield return null;
+						}
+
+						if(!stepComplete) {
+							Melon<Mod>.Logger.Msg("Lab oven door wasn't closable after 5 seconds");
+							yield break;
+						}
 
 						Melon<Mod>.Logger.Msg("Closing lab oven door");
 
@@ -1520,7 +1600,7 @@ namespace AutomatedTasksMod {
 
 						callbackError = false;
 
-						yield return LerpFloatCallbackCoroutine(labOven.Door.ActualPosition, 0, 0.5f, f => {
+						yield return LerpFloatCallbackCoroutine(labOven.Door.ActualPosition, 0, _timeToCloseLabOvenDoor, f => {
 							if(NullCheck([labOven, labOven?.Door, labOven?.PourableContainer, labOven?.ItemContainer]) || !IsLabOvenInUse(labOven)) {
 								callbackError = true;
 								return false;
@@ -1538,7 +1618,7 @@ namespace AutomatedTasksMod {
 
 						Melon<Mod>.Logger.Msg("Done closing lab oven door");
 
-						yield return new WaitForSeconds(0.5f);
+						yield return new WaitForSeconds(_waitBeforePressingLabOvenStartButton);
 
 						Melon<Mod>.Logger.Msg("Pressing lab oven button");
 
@@ -1551,7 +1631,7 @@ namespace AutomatedTasksMod {
 					} else if(labOven.ItemContainer.childCount > 0) {
 						Melon<Mod>.Logger.Msg("Lab oven has products");
 
-						yield return new WaitForSeconds(1f);
+						yield return new WaitForSeconds(_waitBeforeMovingProductsToTray);
 
 						if(NullCheck([labOven, labOven?.ItemContainer, labOven?.SquareTray], "Can't find lab oven - probably exited task"))
 							yield break;
@@ -1566,7 +1646,7 @@ namespace AutomatedTasksMod {
 
 							callbackError = false;
 
-							yield return SinusoidalLerpPositionCoroutine(product.transform, moveToPosition, 0.5f, () => callbackError = true);
+							yield return SinusoidalLerpPositionCoroutine(product.transform, moveToPosition, _timeToMoveProductToTray, () => callbackError = true);
 
 							if(callbackError) {
 								Melon<Mod>.Logger.Msg("Can't find product to move - probably exited task");
@@ -1575,10 +1655,10 @@ namespace AutomatedTasksMod {
 
 							i++;
 
-							yield return new WaitForSeconds(0.3f);
+							yield return new WaitForSeconds(_waitBetweenMovingProductsToTray);
 						}
 
-						yield return new WaitForSeconds(0.5f);
+						yield return new WaitForSeconds(_waitBeforeClosingLabOvenDoorCocaine);
 
 						Melon<Mod>.Logger.Msg("Closing lab oven door");
 
@@ -1587,7 +1667,7 @@ namespace AutomatedTasksMod {
 
 						callbackError = false;
 
-						yield return LerpFloatCallbackCoroutine(labOven.Door.ActualPosition, 0, 0.5f, f => {
+						yield return LerpFloatCallbackCoroutine(labOven.Door.ActualPosition, 0, _timeToCloseLabOvenDoor, f => {
 							if(NullCheck([labOven, labOven?.Door, labOven?.PourableContainer, labOven?.ItemContainer]) || !IsLabOvenInUse(labOven)) {
 								callbackError = true;
 								return false;
@@ -1605,7 +1685,7 @@ namespace AutomatedTasksMod {
 
 						Melon<Mod>.Logger.Msg("Done closing lab oven door");
 
-						yield return new WaitForSeconds(0.5f);
+						yield return new WaitForSeconds(_waitBeforePressingLabOvenStartButton);
 
 						Melon<Mod>.Logger.Msg("Pressing lab oven button");
 
@@ -1629,7 +1709,7 @@ namespace AutomatedTasksMod {
 		[HarmonyPatch(typeof(CauldronCanvas), "BeginButtonPressed")]
 		public static class CauldronCanvasPatch {
 			private static void Postfix(CauldronCanvas __instance) {
-				if(cauldronTask.Value) {
+				if(cauldronToggle.Value) {
 					MelonCoroutines.Start(AutomateCauldronCoroutine());
 				} else {
 					Melon<Mod>.Logger.Msg("Automate cauldron disabled in settings");
@@ -1646,9 +1726,18 @@ namespace AutomatedTasksMod {
 				bool callbackError;
 				float time;
 
+				float _waitBeforeStartingCauldronTask = GetTiming(waitBeforeStartingCauldronTask);
+				float _timeToMoveGasolineToPot = GetTiming(timeToMoveGasolineToPot);
+				float _timeToRotateGasolineToPot = GetTiming(timeToRotateGasolineToPot);
+				float _timeToRotateAndMoveGasolineFromPotBack = GetTiming(timeToRotateAndMoveGasolineFromPotBack);
+				float _waitBeforeMovingProductsToPot = GetTiming(waitBeforeMovingProductsToPot);
+				float _timeToMoveProductToPot = GetTiming(timeToMoveProductToPot);
+				float _waitBetweenMovingProductsToPot = GetTiming(waitBetweenMovingProductsToPot);
+				float _waitBeforePressingCauldronStartButton = GetTiming(waitBeforePressingCauldronStartButton);
+
 				Melon<Mod>.Logger.Msg("Cauldron task started");
 
-				yield return new WaitForSeconds(0.5f);
+				yield return new WaitForSeconds(_waitBeforeStartingCauldronTask);
 
 				cauldron = GameObject.FindObjectsOfType<Cauldron>().FirstOrDefault(c => c.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? false);
 
@@ -1675,7 +1764,7 @@ namespace AutomatedTasksMod {
 
 				callbackError = false;
 
-				yield return SinusoidalLerpPositionAndRotationCoroutine(gasoline.transform, moveToPosition, Vector3.zero, 1f, () => callbackError = true);
+				yield return SinusoidalLerpPositionAndRotationCoroutine(gasoline.transform, moveToPosition, Vector3.zero, _timeToMoveGasolineToPot, () => callbackError = true);
 
 				if(callbackError) {
 					Melon<Mod>.Logger.Msg("Can't find gasoline - probably exited task");
@@ -1687,7 +1776,7 @@ namespace AutomatedTasksMod {
 				gasoline.transform.localEulerAngles = Vector3.zero;
 				rotateToAngles = new Vector3(90, 0, 0);
 
-				yield return SinusoidalLerpPositionAndRotationCoroutine(gasoline.transform, moveToPosition, rotateToAngles, 2f, () => callbackError = true);
+				yield return SinusoidalLerpPositionAndRotationCoroutine(gasoline.transform, moveToPosition, rotateToAngles, _timeToRotateGasolineToPot, () => callbackError = true);
 
 				if(callbackError) {
 					Melon<Mod>.Logger.Msg("Can't find gasoline to move and rotate - probably exited task");
@@ -1729,14 +1818,14 @@ namespace AutomatedTasksMod {
 
 				callbackError = false;
 
-				yield return SinusoidalLerpPositionAndRotationCoroutine(gasoline.transform, moveBackToPosition, Vector3.zero, 0.8f, () => callbackError = true);
+				yield return SinusoidalLerpPositionAndRotationCoroutine(gasoline.transform, moveBackToPosition, Vector3.zero, _timeToRotateAndMoveGasolineFromPotBack, () => callbackError = true);
 
 				if(callbackError) {
 					Melon<Mod>.Logger.Msg("Can't find gasoline to move and rotate - probably exited task");
 					yield break;
 				}
 
-				yield return new WaitForSeconds(0.5f);
+				yield return new WaitForSeconds(_waitBeforeMovingProductsToPot);
 
 				if(NullCheck([cauldron, cauldron.ItemContainer], "Can't find the cauldron the player is using"))
 					yield break;
@@ -1754,17 +1843,17 @@ namespace AutomatedTasksMod {
 
 					callbackError = false;
 
-					yield return SinusoidalLerpPositionCoroutine(ingredientPiece.transform, moveToPosition, 0.5f, () => callbackError = true);
+					yield return SinusoidalLerpPositionCoroutine(ingredientPiece.transform, moveToPosition, _timeToMoveProductToPot, () => callbackError = true);
 
 					if(callbackError) {
 						Melon<Mod>.Logger.Msg("Can't find ingredient - probably exited task");
 						yield break;
 					}
 
-					yield return new WaitForSeconds(0.3f);
+					yield return new WaitForSeconds(_waitBetweenMovingProductsToPot);
 				}
 
-				yield return new WaitForSeconds(0.5f);
+				yield return new WaitForSeconds(_waitBeforePressingCauldronStartButton);
 
 				if(NullCheck([cauldron, cauldron.StartButtonClickable], "Can't find mixing station start button - probably exited task"))
 					yield break;
@@ -1807,6 +1896,16 @@ namespace AutomatedTasksMod {
 		}
 
 		static System.Collections.IEnumerator LerpPositionCoroutine(Transform transform, Vector3 targetPosition, float duration, Action onError = null) {
+			if(duration == 0) {
+				if(transform == null) {
+					onError?.Invoke();
+					yield break;
+				}
+
+				transform.position = targetPosition;
+				yield break;
+			}
+
 			float time = 0;
 			Vector3 startPosition = transform.position;
 
@@ -1831,6 +1930,16 @@ namespace AutomatedTasksMod {
 		}
 
 		static System.Collections.IEnumerator SinusoidalLerpPositionCoroutine(Transform transform, Vector3 targetPosition, float duration, Action onError = null) {
+			if(duration == 0) {
+				if(transform == null) {
+					onError?.Invoke();
+					yield break;
+				}
+
+				transform.position = targetPosition;
+				yield break;
+			}
+
 			float time = 0;
 			Vector3 startPosition = transform.position;
 
@@ -1857,6 +1966,18 @@ namespace AutomatedTasksMod {
 		}
 
 		static System.Collections.IEnumerator SinusoidalLerpPositionsCoroutine(Transform[] transforms, Vector3 positionModifier, float duration, Action onError = null) {
+			if(duration == 0) {
+				for(int i = 0; i < transforms.Length; i++) {
+					if(transforms[i] == null) {
+						onError?.Invoke();
+						yield break;
+					}
+
+					transforms[i].position = new Vector3(transforms[i].position.x + positionModifier.x, transforms[i].position.y + positionModifier.y, transforms[i].position.z + positionModifier.z);
+				}
+				yield break;
+			}
+
 			float time = 0;
 			
 			Vector3[] startPositions = [.. transforms.Select(t => t.position)];
@@ -1889,6 +2010,16 @@ namespace AutomatedTasksMod {
 		}
 
 		static System.Collections.IEnumerator LerpRotationCoroutine(Transform transform, Vector3 targetAngle, float duration, Action onError = null) {
+			if(duration == 0) {
+				if(transform == null) {
+					onError?.Invoke();
+					yield break;
+				}
+
+				transform.localEulerAngles = targetAngle;
+				yield break;
+			}
+
 			float time = 0;
 			Vector3 startRotation = transform.localEulerAngles;
 
@@ -1913,6 +2044,16 @@ namespace AutomatedTasksMod {
 		}
 
 		static System.Collections.IEnumerator SinusoidalLerpRotationCoroutine(Transform transform, Vector3 targetAngle, float duration, Action onError = null) {
+			if(duration == 0) {
+				if(transform == null) {
+					onError?.Invoke();
+					yield break;
+				}
+
+				transform.localEulerAngles = targetAngle;
+				yield break;
+			}
+
 			float time = 0;
 			Vector3 startRotation = transform.localEulerAngles;
 
@@ -1938,6 +2079,17 @@ namespace AutomatedTasksMod {
 		}
 
 		static System.Collections.IEnumerator SinusoidalLerpPositionAndRotationCoroutine(Transform transform, Vector3 targetPosition, Vector3 targetAngle, float duration, Action onError = null) {
+			if(duration == 0) {
+				if(transform == null) {
+					onError?.Invoke();
+					yield break;
+				}
+
+				transform.position = targetPosition;
+				transform.localEulerAngles = targetAngle;
+				yield break;
+			}
+
 			float time = 0;
 			Vector3 startPosition = transform.position;
 			Vector3 startRotation = transform.localEulerAngles;
@@ -1973,6 +2125,11 @@ namespace AutomatedTasksMod {
 		}
 
 		static System.Collections.IEnumerator LerpFloatCallbackCoroutine(float start, float end, float duration, Func<float, bool> body) {
+			if(duration == 0) {
+				body.Invoke(end);
+				yield break;
+			}
+
 			float time = 0;
 			float delta = end - start;
 
