@@ -25,7 +25,7 @@ using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(AutomatedTasksMod.Mod), "AutomatedTasksMod", "0.5.0", "Robert Rioja")]
+[assembly: MelonInfo(typeof(AutomatedTasksMod.Mod), "AutomatedTasksMod", "0.5.1", "Robert Rioja")]
 [assembly: MelonColor(1, 255, 20, 147)]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
@@ -1467,14 +1467,18 @@ namespace AutomatedTasksMod {
 
 				//Up to 8 seconds
 				while(time < 8) {
-					if(NullCheck([chemistryStation, chemistryStation?.BoilingFlask, chemistryStation?.Burner], "Can't find chemistry station - probably exited task"))
+					if(NullCheck([chemistryStation, chemistryStation?.BoilingFlask, chemistryStation?.Burner], "Can't find chemistry station - probably exited task")) {
+						TryToTurnBurnerOff(chemistryStation);
 						yield break;
+					}
 
 					if(!IsChemistryStationInUse(chemistryStation)) {
-						if(NullCheck(chemistryStation.CurrentCookOperation, "Probably exited task"))
+						if(NullCheck(chemistryStation.CurrentCookOperation, "Probably exited task")) {
+							TryToTurnBurnerOff(chemistryStation);
 							yield break;
-						else {
+						} else {
 							Melon<Mod>.Logger.Msg("Finished preparing recipe");
+							TryToTurnBurnerOff(chemistryStation);
 							stepComplete = true;
 							break;
 						}
@@ -1493,8 +1497,18 @@ namespace AutomatedTasksMod {
 
 				if(!stepComplete) {
 					Melon<Mod>.Logger.Msg("Handling burner didn't complete after 8 seconds");
+					TryToTurnBurnerOff(chemistryStation);
 					yield break;
 				}
+			}
+
+			private static void TryToTurnBurnerOff(ChemistryStation chemistryStation) {
+				if(NullCheck([chemistryStation, chemistryStation?.Burner])) {
+					return;
+				}
+
+				chemistryStation.Burner.IsDialHeld = false;
+				chemistryStation.Burner.CurrentHeat = 0;
 			}
 		}
 

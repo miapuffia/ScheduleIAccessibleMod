@@ -25,7 +25,7 @@ namespace AutomatedTasksMod {
 
 		//General timings
 		private static MelonPreferences_Category taskTimings;
-		private static MelonPreferences_Entry<SpeedEnum> timingsOverride;
+		private static MelonPreferences_Entry<SpeedEnum> timingsPreset;
 
 		//Pouring soil
 		private static MelonPreferences_Category pouringSoilTimings;
@@ -159,7 +159,7 @@ namespace AutomatedTasksMod {
 			entryIndex = new(0);
 
 			taskTimings = MelonPreferences.CreateCategory($"AutomatedTasksMod_{++categoryIndex}_timings", "Task Timings (in seconds)");
-			timingsOverride = taskTimings.CreateEntry<SpeedEnum>($"timings_{++entryIndex}_timingsOverride", SpeedEnum.Custom_Values_Below, "Apply timings override to every value");
+			timingsPreset = taskTimings.CreateEntry<SpeedEnum>($"timings_{++entryIndex}_timingsPreset", SpeedEnum.Custom_Values_Below, "Apply timings preset to every value");
 
 			entryIndex = new(0);
 
@@ -297,7 +297,7 @@ namespace AutomatedTasksMod {
 		}
 
 		private static float GetTiming(MelonPreferences_Entry<float> timingPref) {
-			return timingsOverride.Value switch {
+			return timingsPreset.Value switch {
 				SpeedEnum.Custom_Values_Below => timingPref.Value,
 				SpeedEnum.Default_Values => timingPref.DefaultValue,
 				SpeedEnum.Fast => MathF.Min(timingPref.DefaultValue, 0.2f),
