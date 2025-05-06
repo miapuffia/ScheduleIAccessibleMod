@@ -6,136 +6,136 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace AutomatedTasksMod {
-	public partial class Mod : MelonMod {
+	internal class Prefs {
 		//Task toggles
-		private static MelonPreferences_Category toggles;
-		private static MelonPreferences_Entry<bool> pouringSoilToggle;
-		private static MelonPreferences_Entry<bool> sowingSeedToggle;
-		private static MelonPreferences_Entry<bool> pouringWaterToggle;
-		private static MelonPreferences_Entry<bool> pouringFertilizerToggle;
-		private static MelonPreferences_Entry<bool> harvestingToggle;
-		private static MelonPreferences_Entry<bool> sinkToggle;
-		private static MelonPreferences_Entry<bool> packagingStationToggle;
-		private static MelonPreferences_Entry<bool> packagingStationMk2Toggle;
-		private static MelonPreferences_Entry<bool> brickPressToggle;
-		private static MelonPreferences_Entry<bool> mixingStationToggle;
-		private static MelonPreferences_Entry<bool> chemistryStationToggle;
-		private static MelonPreferences_Entry<bool> labOvenToggle;
-		private static MelonPreferences_Entry<bool> cauldronToggle;
+		internal static MelonPreferences_Category toggles;
+		internal static MelonPreferences_Entry<bool> pouringSoilToggle;
+		internal static MelonPreferences_Entry<bool> sowingSeedToggle;
+		internal static MelonPreferences_Entry<bool> pouringWaterToggle;
+		internal static MelonPreferences_Entry<bool> pouringFertilizerToggle;
+		internal static MelonPreferences_Entry<bool> harvestingToggle;
+		internal static MelonPreferences_Entry<bool> sinkToggle;
+		internal static MelonPreferences_Entry<bool> packagingStationToggle;
+		internal static MelonPreferences_Entry<bool> packagingStationMk2Toggle;
+		internal static MelonPreferences_Entry<bool> brickPressToggle;
+		internal static MelonPreferences_Entry<bool> mixingStationToggle;
+		internal static MelonPreferences_Entry<bool> chemistryStationToggle;
+		internal static MelonPreferences_Entry<bool> labOvenToggle;
+		internal static MelonPreferences_Entry<bool> cauldronToggle;
 
 		//General timings
-		private static MelonPreferences_Category taskTimings;
-		private static MelonPreferences_Entry<SpeedEnum> timingsPreset;
+		internal static MelonPreferences_Category taskTimings;
+		internal static MelonPreferences_Entry<SpeedEnum> timingsPreset;
 
 		//Pouring soil
-		private static MelonPreferences_Category pouringSoilTimings;
-		private static MelonPreferences_Entry<float> waitBeforeStartingPouringSoilTask;
-		private static MelonPreferences_Entry<float> waitBetweenSoilCuts;
-		private static MelonPreferences_Entry<float> waitBeforeRotatingSoil;
-		private static MelonPreferences_Entry<float> timeToRotateSoil;
+		internal static MelonPreferences_Category pouringSoilTimings;
+		internal static MelonPreferences_Entry<float> waitBeforeStartingPouringSoilTask;
+		internal static MelonPreferences_Entry<float> waitBetweenSoilCuts;
+		internal static MelonPreferences_Entry<float> waitBeforeRotatingSoil;
+		internal static MelonPreferences_Entry<float> timeToRotateSoil;
 
 		//Sowing seed
-		private static MelonPreferences_Category sowingSeedTimings;
-		private static MelonPreferences_Entry<float> waitBeforeStartingSowingSeedTask;
-		private static MelonPreferences_Entry<float> timeToMoveAndRotateSeedVial;
-		private static MelonPreferences_Entry<float> waitBeforePoppingSeedVialCap;
-		private static MelonPreferences_Entry<float> waitBeforeMovingDirtChunks;
-		private static MelonPreferences_Entry<float> waitBetweenMovingSoilChunks;
+		internal static MelonPreferences_Category sowingSeedTimings;
+		internal static MelonPreferences_Entry<float> waitBeforeStartingSowingSeedTask;
+		internal static MelonPreferences_Entry<float> timeToMoveAndRotateSeedVial;
+		internal static MelonPreferences_Entry<float> waitBeforePoppingSeedVialCap;
+		internal static MelonPreferences_Entry<float> waitBeforeMovingDirtChunks;
+		internal static MelonPreferences_Entry<float> waitBetweenMovingSoilChunks;
 
 		//Pouring water
-		private static MelonPreferences_Category pouringWaterTimings;
-		private static MelonPreferences_Entry<float> waitBeforeStartingPouringWaterTask;
-		private static MelonPreferences_Entry<float> timeToRotateWateringCan;
-		private static MelonPreferences_Entry<float> timeToMoveWateringCan;
+		internal static MelonPreferences_Category pouringWaterTimings;
+		internal static MelonPreferences_Entry<float> waitBeforeStartingPouringWaterTask;
+		internal static MelonPreferences_Entry<float> timeToRotateWateringCan;
+		internal static MelonPreferences_Entry<float> timeToMoveWateringCan;
 
 		//Pouring fertilizer
-		private static MelonPreferences_Category pouringFertilizerTimings;
-		private static MelonPreferences_Entry<float> waitBeforeStartingPouringFertilizerTask;
-		private static MelonPreferences_Entry<float> timeToRotateFertilizer;
-		private static MelonPreferences_Entry<float> timeToMoveFertilizer;
+		internal static MelonPreferences_Category pouringFertilizerTimings;
+		internal static MelonPreferences_Entry<float> waitBeforeStartingPouringFertilizerTask;
+		internal static MelonPreferences_Entry<float> timeToRotateFertilizer;
+		internal static MelonPreferences_Entry<float> timeToMoveFertilizer;
 
 		//Harvesting
-		private static MelonPreferences_Category harvestingTimings;
-		private static MelonPreferences_Entry<float> waitBeforeStartingHarvestingTask;
-		private static MelonPreferences_Entry<float> waitBetweenHarvestingPieces;
-		private static MelonPreferences_Entry<float> waitBetweenHarvestingPiecesElectric;
+		internal static MelonPreferences_Category harvestingTimings;
+		internal static MelonPreferences_Entry<float> waitBeforeStartingHarvestingTask;
+		internal static MelonPreferences_Entry<float> waitBetweenHarvestingPieces;
+		internal static MelonPreferences_Entry<float> waitBetweenHarvestingPiecesElectric;
 
 		//Sink
-		private static MelonPreferences_Category sinkTimings;
-		private static MelonPreferences_Entry<float> waitBeforeStartingSinkTask;
+		internal static MelonPreferences_Category sinkTimings;
+		internal static MelonPreferences_Entry<float> waitBeforeStartingSinkTask;
 
 		//Packaging station
-		private static MelonPreferences_Category packagingStationTimings;
-		private static MelonPreferences_Entry<float> waitBeforeStartingPackagingTask;
-		private static MelonPreferences_Entry<float> timeToMoveProductToPackaging;
-		private static MelonPreferences_Entry<float> waitBeforeMovingPackagingToHatch;
-		private static MelonPreferences_Entry<float> timeToMovePackagingToHatch;
-		private static MelonPreferences_Entry<float> waitAfterMovingPackagingToHatch;
+		internal static MelonPreferences_Category packagingStationTimings;
+		internal static MelonPreferences_Entry<float> waitBeforeStartingPackagingTask;
+		internal static MelonPreferences_Entry<float> timeToMoveProductToPackaging;
+		internal static MelonPreferences_Entry<float> waitBeforeMovingPackagingToHatch;
+		internal static MelonPreferences_Entry<float> timeToMovePackagingToHatch;
+		internal static MelonPreferences_Entry<float> waitAfterMovingPackagingToHatch;
 
 		//Packaging station Mk2
-		private static MelonPreferences_Category packagingStationMk2Timings;
-		private static MelonPreferences_Entry<float> waitBeforeStartingPackagingMk2Task;
+		internal static MelonPreferences_Category packagingStationMk2Timings;
+		internal static MelonPreferences_Entry<float> waitBeforeStartingPackagingMk2Task;
 
 		//Brick press
-		private static MelonPreferences_Category brickPressTimings;
-		private static MelonPreferences_Entry<float> waitBeforeStartingBrickPressTask;
-		private static MelonPreferences_Entry<float> timeToMoveProductsToMoldUp;
-		private static MelonPreferences_Entry<float> timeToMoveProductsToMoldRight;
-		private static MelonPreferences_Entry<float> waitBeforePullingDownHandle;
-		private static MelonPreferences_Entry<float> timeToPullDownHandle;
+		internal static MelonPreferences_Category brickPressTimings;
+		internal static MelonPreferences_Entry<float> waitBeforeStartingBrickPressTask;
+		internal static MelonPreferences_Entry<float> timeToMoveProductsToMoldUp;
+		internal static MelonPreferences_Entry<float> timeToMoveProductsToMoldRight;
+		internal static MelonPreferences_Entry<float> waitBeforePullingDownHandle;
+		internal static MelonPreferences_Entry<float> timeToPullDownHandle;
 
 		//Mixing station
-		private static MelonPreferences_Category mixingStationTimings;
-		private static MelonPreferences_Entry<float> waitBeforeStartingMixingStationTask;
-		private static MelonPreferences_Entry<float> timeToMoveProductToMixer;
-		private static MelonPreferences_Entry<float> waitBetweenMovingItemsToMixer;
-		private static MelonPreferences_Entry<float> timeToMovePourableToMixer;
-		private static MelonPreferences_Entry<float> timeToRotatePourableToMixer;
-		private static MelonPreferences_Entry<float> timeToRotateAndMovePourableFromMixerBack;
-		private static MelonPreferences_Entry<float> waitBeforePressingMixerStartButton;
+		internal static MelonPreferences_Category mixingStationTimings;
+		internal static MelonPreferences_Entry<float> waitBeforeStartingMixingStationTask;
+		internal static MelonPreferences_Entry<float> timeToMoveProductToMixer;
+		internal static MelonPreferences_Entry<float> waitBetweenMovingItemsToMixer;
+		internal static MelonPreferences_Entry<float> timeToMovePourableToMixer;
+		internal static MelonPreferences_Entry<float> timeToRotatePourableToMixer;
+		internal static MelonPreferences_Entry<float> timeToRotateAndMovePourableFromMixerBack;
+		internal static MelonPreferences_Entry<float> waitBeforePressingMixerStartButton;
 
 		//Chemistry station
-		private static MelonPreferences_Category chemistryStationTimings;
-		private static MelonPreferences_Entry<float> waitBeforeStartingChemistryStationTask;
-		private static MelonPreferences_Entry<float> timeToMoveProductToBeaker;
-		private static MelonPreferences_Entry<float> waitBetweenMovingProductsToBeaker;
-		private static MelonPreferences_Entry<float> timeToMovePourableToBeaker;
-		private static MelonPreferences_Entry<float> timeToRotatePourableToBeaker;
-		private static MelonPreferences_Entry<float> timeToRotateAndMovePourableFromBeakerBack;
-		private static MelonPreferences_Entry<float> waitBetweenMovingPourablesToBeaker;
-		private static MelonPreferences_Entry<float> timeToRotateStirRod;
-		private static MelonPreferences_Entry<float> waitBeforeMovingLabStandDown;
-		private static MelonPreferences_Entry<float> timeToMoveLabStandDown;
-		private static MelonPreferences_Entry<float> waitBeforeMovingBeakerToFunnel;
-		private static MelonPreferences_Entry<float> timeToMoveBeakerToFunnel;
-		private static MelonPreferences_Entry<float> timeToRotateBeakerToFunnel;
-		private static MelonPreferences_Entry<float> waitBeforeMovingLabStandUp;
-		private static MelonPreferences_Entry<float> timeToMoveLabStandUp;
-		private static MelonPreferences_Entry<float> waitBeforeHandlingBurner;
+		internal static MelonPreferences_Category chemistryStationTimings;
+		internal static MelonPreferences_Entry<float> waitBeforeStartingChemistryStationTask;
+		internal static MelonPreferences_Entry<float> timeToMoveProductToBeaker;
+		internal static MelonPreferences_Entry<float> waitBetweenMovingProductsToBeaker;
+		internal static MelonPreferences_Entry<float> timeToMovePourableToBeaker;
+		internal static MelonPreferences_Entry<float> timeToRotatePourableToBeaker;
+		internal static MelonPreferences_Entry<float> timeToRotateAndMovePourableFromBeakerBack;
+		internal static MelonPreferences_Entry<float> waitBetweenMovingPourablesToBeaker;
+		internal static MelonPreferences_Entry<float> timeToRotateStirRod;
+		internal static MelonPreferences_Entry<float> waitBeforeMovingLabStandDown;
+		internal static MelonPreferences_Entry<float> timeToMoveLabStandDown;
+		internal static MelonPreferences_Entry<float> waitBeforeMovingBeakerToFunnel;
+		internal static MelonPreferences_Entry<float> timeToMoveBeakerToFunnel;
+		internal static MelonPreferences_Entry<float> timeToRotateBeakerToFunnel;
+		internal static MelonPreferences_Entry<float> waitBeforeMovingLabStandUp;
+		internal static MelonPreferences_Entry<float> timeToMoveLabStandUp;
+		internal static MelonPreferences_Entry<float> waitBeforeHandlingBurner;
 
 		//Lab oven
-		private static MelonPreferences_Category labOvenTimings;
-		private static MelonPreferences_Entry<float> waitBeforeStartingLabOvenTask;
-		private static MelonPreferences_Entry<float> timeToOpenLabOvenDoor;
-		private static MelonPreferences_Entry<float> timeToCloseLabOvenDoor;
-		private static MelonPreferences_Entry<float> waitBeforeMovingProductsToTray;
-		private static MelonPreferences_Entry<float> timeToMoveProductToTray;
-		private static MelonPreferences_Entry<float> waitBetweenMovingProductsToTray;
-		private static MelonPreferences_Entry<float> waitBeforeClosingLabOvenDoorCocaine;
-		private static MelonPreferences_Entry<float> waitBeforePressingLabOvenStartButton;
+		internal static MelonPreferences_Category labOvenTimings;
+		internal static MelonPreferences_Entry<float> waitBeforeStartingLabOvenTask;
+		internal static MelonPreferences_Entry<float> timeToOpenLabOvenDoor;
+		internal static MelonPreferences_Entry<float> timeToCloseLabOvenDoor;
+		internal static MelonPreferences_Entry<float> waitBeforeMovingProductsToTray;
+		internal static MelonPreferences_Entry<float> timeToMoveProductToTray;
+		internal static MelonPreferences_Entry<float> waitBetweenMovingProductsToTray;
+		internal static MelonPreferences_Entry<float> waitBeforeClosingLabOvenDoorCocaine;
+		internal static MelonPreferences_Entry<float> waitBeforePressingLabOvenStartButton;
 
 		//Cauldron
-		private static MelonPreferences_Category cauldronTimings;
-		private static MelonPreferences_Entry<float> waitBeforeStartingCauldronTask;
-		private static MelonPreferences_Entry<float> timeToMoveGasolineToPot;
-		private static MelonPreferences_Entry<float> timeToRotateGasolineToPot;
-		private static MelonPreferences_Entry<float> timeToRotateAndMoveGasolineFromPotBack;
-		private static MelonPreferences_Entry<float> waitBeforeMovingProductsToPot;
-		private static MelonPreferences_Entry<float> timeToMoveProductToPot;
-		private static MelonPreferences_Entry<float> waitBetweenMovingProductsToPot;
-		private static MelonPreferences_Entry<float> waitBeforePressingCauldronStartButton;
+		internal static MelonPreferences_Category cauldronTimings;
+		internal static MelonPreferences_Entry<float> waitBeforeStartingCauldronTask;
+		internal static MelonPreferences_Entry<float> timeToMoveGasolineToPot;
+		internal static MelonPreferences_Entry<float> timeToRotateGasolineToPot;
+		internal static MelonPreferences_Entry<float> timeToRotateAndMoveGasolineFromPotBack;
+		internal static MelonPreferences_Entry<float> waitBeforeMovingProductsToPot;
+		internal static MelonPreferences_Entry<float> timeToMoveProductToPot;
+		internal static MelonPreferences_Entry<float> waitBetweenMovingProductsToPot;
+		internal static MelonPreferences_Entry<float> waitBeforePressingCauldronStartButton;
 
-		private static void SetupPrefs() {
+		internal static void SetupPrefs() {
 			PrettyInt categoryIndex = new(0);
 			PrettyInt entryIndex = new(0);
 
@@ -296,7 +296,7 @@ namespace AutomatedTasksMod {
 			waitBeforePressingCauldronStartButton = cauldronTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBeforePressingCauldronStartButton", 0.5f, "Wait before pressing start button");
 		}
 
-		private static float GetTiming(MelonPreferences_Entry<float> timingPref) {
+		internal static float GetTiming(MelonPreferences_Entry<float> timingPref) {
 			return timingsPreset.Value switch {
 				SpeedEnum.Custom_Values_Below => timingPref.Value,
 				SpeedEnum.Default_Values => timingPref.DefaultValue,

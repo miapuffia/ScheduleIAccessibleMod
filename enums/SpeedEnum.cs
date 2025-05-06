@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace AutomatedTasksMod {
-	public enum SpeedEnum {
+	internal enum SpeedEnum {
 		Custom_Values_Below,
 		Default_Values,
 		Fast,

@@ -467,11 +467,21 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<Compile Include="Extensions.cs" />
+		<Compile Include="patches\BrickPressPatch.cs" />
+		<Compile Include="patches\CauldronCanvasPatch.cs" />
+		<Compile Include="patches\ChemistryStationCanvasPatch.cs" />
+		<Compile Include="patches\HarvestPatch.cs" />
+		<Compile Include="patches\LabOvenCanvasPatch.cs" />
+		<Compile Include="patches\MixingStationCanvasPatch.cs" />
+		<Compile Include="patches\PackagingStationMk2Patch.cs" />
+		<Compile Include="patches\PackagingStationPatch.cs" />
+		<Compile Include="patches\TapPatch.cs" />
+		<Compile Include="utils\Extensions.cs" />
 		<Compile Include="Mod.cs" />
 		<Compile Include="Prefs.cs" />
-		<Compile Include="PrettyInt.cs" />
-		<Compile Include="SpeedEnum.cs" />
+		<Compile Include="utils\PrettyInt.cs" />
+		<Compile Include="enums\SpeedEnum.cs" />
+		<Compile Include="utils\Utils.cs" />
 	</ItemGroup>
 
 	<ItemGroup>

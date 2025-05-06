@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace AutomatedTasksMod {
-	public class PrettyInt {
+	internal class PrettyInt {
 		private int value;
 
 		public PrettyInt(int value) {
