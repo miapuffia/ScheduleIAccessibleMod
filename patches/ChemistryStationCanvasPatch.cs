@@ -1,6 +1,5 @@
 ﻿using HarmonyLib;
 using Il2CppScheduleOne.ObjectScripts;
-using Il2CppScheduleOne.PlayerScripts;
 using Il2CppScheduleOne.StationFramework;
 using Il2CppScheduleOne.UI.Stations;
 using MelonLoader;
@@ -14,15 +13,15 @@ using UnityEngine;
 namespace AutomatedTasksMod {
 	[HarmonyPatch(typeof(ChemistryStationCanvas), "BeginButtonPressed")]
 	internal static class ChemistryStationCanvasPatch {
-		private static void Postfix(ChemistryStationCanvas __instance) {
+		private static void Prefix(ChemistryStationCanvas __instance) {
 			if(Prefs.chemistryStationToggle.Value) {
-				MelonCoroutines.Start(AutomateChemistryStationCoroutine());
+				MelonCoroutines.Start(AutomateChemistryStationCoroutine(__instance));
 			} else {
 				Melon<Mod>.Logger.Msg("Automate chemistry station disabled in settings");
 			}
 		}
 
-		static System.Collections.IEnumerator AutomateChemistryStationCoroutine() {
+		private static System.Collections.IEnumerator AutomateChemistryStationCoroutine(ChemistryStationCanvas chemistryStationCanvas) {
 			ChemistryStation chemistryStation;
 			Beaker beaker;
 			StirringRod stirringRod;
@@ -30,7 +29,8 @@ namespace AutomatedTasksMod {
 			Vector3 moveBackToPosition;
 			Vector3 rotateToAngles;
 			bool stepComplete;
-			bool callbackError;
+			bool isInUse;
+			bool isError = false;
 			float time;
 
 			float _waitBeforeStartingChemistryStationTask = Prefs.GetTiming(Prefs.waitBeforeStartingChemistryStationTask);
@@ -52,11 +52,16 @@ namespace AutomatedTasksMod {
 
 			Melon<Mod>.Logger.Msg("Chemistry station task started");
 
+			if(Utils.NullCheck([chemistryStationCanvas, chemistryStationCanvas?.ChemistryStation], "Can't find chemistry station - probably exited task"))
+				yield break;
+
+			chemistryStation = chemistryStationCanvas.ChemistryStation;
+
 			yield return new WaitForSeconds(_waitBeforeStartingChemistryStationTask);
 
-			chemistryStation = GameObject.FindObjectsOfType<ChemistryStation>().FirstOrDefault(m => m.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? false);
+			Melon<Mod>.Logger.Msg("Moving ingredients to beaker");
 
-			if(Utils.NullCheck(chemistryStation, "Can't find the chemistry station the player is using"))
+			if(Utils.NullCheck(chemistryStation, "Can't find chemistry station - probably exited task"))
 				yield break;
 
 			beaker = chemistryStation.GetComponentInChildren<Beaker>();
@@ -64,9 +69,9 @@ namespace AutomatedTasksMod {
 			if(Utils.NullCheck(beaker, "Can't find beaker - probably exited task"))
 				yield break;
 
-			Melon<Mod>.Logger.Msg("Moving ingredients to beaker");
-
 			foreach(IngredientPiece ingredient in chemistryStation.ItemContainer.transform.GetComponentsInChildren<IngredientPiece>()) {
+				Melon<Mod>.Logger.Msg("Moving ingredient to beaker");
+
 				if(Utils.NullCheck(ingredient, "Can't find ingredient - probably exited task"))
 					yield break;
 
@@ -76,13 +81,11 @@ namespace AutomatedTasksMod {
 				moveToPosition = beaker.transform.position;
 				moveToPosition.y += 0.4f;
 
-				Melon<Mod>.Logger.Msg("Moving ingredient to beaker");
+				isError = false;
 
-				callbackError = false;
+				yield return Utils.SinusoidalLerpPositionCoroutine(ingredient.transform, moveToPosition, _timeToMoveProductToBeaker, () => isError = true);
 
-				yield return Utils.SinusoidalLerpPositionCoroutine(ingredient.transform, moveToPosition, _timeToMoveProductToBeaker, () => callbackError = true);
-
-				if(callbackError) {
+				if(isError) {
 					Melon<Mod>.Logger.Msg("Can't find ingredient to move - probably exited task");
 					yield break;
 				}
@@ -94,6 +97,8 @@ namespace AutomatedTasksMod {
 			Melon<Mod>.Logger.Msg("Pouring ingredients");
 
 			foreach(PourableModule pourable in chemistryStation.ItemContainer.transform.GetComponentsInChildren<PourableModule>()) {
+				Melon<Mod>.Logger.Msg("Moving pourable to beaker");
+
 				if(Utils.NullCheck(pourable, "Can't find pourable - probably exited task"))
 					yield break;
 
@@ -110,22 +115,20 @@ namespace AutomatedTasksMod {
 				moveToPosition = beaker.transform.position;
 				moveToPosition.y += 0.4f;
 
-				Melon<Mod>.Logger.Msg("Moving pourable to beaker");
+				isError = false;
 
-				callbackError = false;
+				yield return Utils.SinusoidalLerpPositionCoroutine(pourable.transform, moveToPosition, _timeToMovePourableToBeaker, () => isError = true);
 
-				yield return Utils.SinusoidalLerpPositionCoroutine(pourable.transform, moveToPosition, _timeToMovePourableToBeaker, () => callbackError = true);
-
-				if(callbackError) {
+				if(isError) {
 					Melon<Mod>.Logger.Msg("Can't find pourable to move - probably exited task");
 					yield break;
 				}
 
 				Melon<Mod>.Logger.Msg("Rotating pourable");
 
-				yield return Utils.SinusoidalLerpPositionAndRotationCoroutine(pourable.transform, moveToPosition, new Vector3(pourable.transform.localEulerAngles.x, pourable.transform.localEulerAngles.x, pourable.transform.localEulerAngles.y + 180), _timeToRotatePourableToBeaker, () => callbackError = true);
+				yield return Utils.SinusoidalLerpPositionAndRotationCoroutine(pourable.transform, moveToPosition, new Vector3(pourable.transform.localEulerAngles.x, pourable.transform.localEulerAngles.x, pourable.transform.localEulerAngles.y + 180), _timeToRotatePourableToBeaker, () => isError = true);
 
-				if(callbackError) {
+				if(isError) {
 					Melon<Mod>.Logger.Msg("Can't find pourable to move and rotate - probably exited task");
 					yield break;
 				}
@@ -160,11 +163,11 @@ namespace AutomatedTasksMod {
 
 				Melon<Mod>.Logger.Msg("Moving pourable out of the way");
 
-				callbackError = false;
+				isError = false;
 
-				yield return Utils.SinusoidalLerpPositionAndRotationCoroutine(pourable.transform, moveBackToPosition, Vector3.zero, _timeToRotateAndMovePourableFromBeakerBack, () => callbackError = true);
+				yield return Utils.SinusoidalLerpPositionAndRotationCoroutine(pourable.transform, moveBackToPosition, Vector3.zero, _timeToRotateAndMovePourableFromBeakerBack, () => isError = true);
 
-				if(callbackError) {
+				if(isError) {
 					Melon<Mod>.Logger.Msg("Can't find pourable to move and rotate - probably exited task");
 					yield break;
 				}
@@ -189,7 +192,9 @@ namespace AutomatedTasksMod {
 			//Up to 8 seconds
 			while(maxTime > 0) {
 				if(Utils.NullCheck(stirringRod)) {
-					if(Utils.NullCheck(chemistryStation) || !IsChemistryStationInUse(chemistryStation)) {
+					GetIsChemistryStationInUse(chemistryStation, out isInUse, ref isError);
+
+					if(isError || !isInUse) {
 						Melon<Mod>.Logger.Msg("Can't find chemistry station - probably exited task");
 						yield break;
 					} else { //Chemistry station is still being interacted with but stir rod is gone
@@ -205,11 +210,11 @@ namespace AutomatedTasksMod {
 					stirringRod.CurrentStirringSpeed = 4f;
 					stirringRod.enabled = false;
 
-					callbackError = false;
+					isError = false;
 
-					MelonCoroutines.Start(Utils.LerpRotationCoroutine(stirringRod.transform, new Vector3(stirringRod.transform.localEulerAngles.x, stirringRod.transform.localEulerAngles.y + 40, stirringRod.transform.localEulerAngles.z), _timeToRotateStirRod, () => callbackError = true));
+					MelonCoroutines.Start(Utils.LerpRotationCoroutine(stirringRod.transform, new Vector3(stirringRod.transform.localEulerAngles.x, stirringRod.transform.localEulerAngles.y + 40, stirringRod.transform.localEulerAngles.z), _timeToRotateStirRod, () => isError = true));
 
-					if(callbackError) {
+					if(isError) {
 						Melon<Mod>.Logger.Msg("Can't find stir rod to rotate - probably exited task");
 						yield break;
 					}
@@ -234,17 +239,16 @@ namespace AutomatedTasksMod {
 
 			Melon<Mod>.Logger.Msg("Moving lab stand down");
 
-			if(Utils.NullCheck(chemistryStation, "Can't find chemistry station - probably exited task"))
+			if(Utils.NullCheck([chemistryStation, chemistryStation?.LabStand], "Can't find chemistry station - probably exited task"))
 				yield break;
 
-			if(Utils.NullCheck(chemistryStation.LabStand, "Can't find lab stand - probably exited task"))
-				yield break;
-
-			callbackError = false;
+			isError = false;
 
 			yield return Utils.LerpFloatCallbackCoroutine(1, 0, _timeToMoveLabStandDown, f => {
-				if(Utils.NullCheck([chemistryStation, chemistryStation?.LabStand]) || !IsChemistryStationInUse(chemistryStation)) {
-					callbackError = true;
+				GetIsChemistryStationInUse(chemistryStation, out isInUse, ref isError);
+
+				if(isError || Utils.NullCheck(chemistryStation.LabStand) || !isInUse) {
+					isError = true;
 					return false;
 				}
 
@@ -253,7 +257,7 @@ namespace AutomatedTasksMod {
 				return true;
 			});
 
-			if(callbackError) {
+			if(isError) {
 				Melon<Mod>.Logger.Msg("Can't find lab stand to move - probably exited task");
 				yield break;
 			}
@@ -271,11 +275,11 @@ namespace AutomatedTasksMod {
 			moveToPosition = beaker.transform.position.Between(chemistryStation.LabStand.Funnel.transform.position, 0.3f);
 			moveToPosition.y += 0.4f;
 
-			callbackError = false;
+			isError = false;
 
-			yield return Utils.SinusoidalLerpPositionCoroutine(beaker.transform, moveToPosition, _timeToMoveBeakerToFunnel, () => callbackError = true);
+			yield return Utils.SinusoidalLerpPositionCoroutine(beaker.transform, moveToPosition, _timeToMoveBeakerToFunnel, () => isError = true);
 
-			if(callbackError) {
+			if(isError) {
 				Melon<Mod>.Logger.Msg("Can't find beaker - probably exited task");
 				yield break;
 			}
@@ -285,9 +289,9 @@ namespace AutomatedTasksMod {
 			beaker.transform.localEulerAngles = Vector3.zero;
 			rotateToAngles = new Vector3(beaker.transform.localEulerAngles.x, beaker.transform.localEulerAngles.x, beaker.transform.localEulerAngles.y + 90);
 
-			yield return Utils.SinusoidalLerpPositionAndRotationCoroutine(beaker.transform, moveToPosition, rotateToAngles, _timeToRotateBeakerToFunnel, () => callbackError = true);
+			yield return Utils.SinusoidalLerpPositionAndRotationCoroutine(beaker.transform, moveToPosition, rotateToAngles, _timeToRotateBeakerToFunnel, () => isError = true);
 
-			if(callbackError) {
+			if(isError) {
 				Melon<Mod>.Logger.Msg("Can't find beaker to move and rotate - probably exited task");
 				yield break;
 			}
@@ -299,7 +303,7 @@ namespace AutomatedTasksMod {
 
 			//Up to 5 seconds
 			while(time < 5) {
-				if(Utils.NullCheck(beaker, "Can't find beaker - probably exited task"))
+				if(Utils.NullCheck([beaker, beaker?.Pourable], "Can't find beaker - probably exited task"))
 					yield break;
 
 				if(beaker.Pourable.LiquidLevel == 0) {
@@ -328,11 +332,13 @@ namespace AutomatedTasksMod {
 			if(Utils.NullCheck([chemistryStation, chemistryStation?.LabStand], "Can't find chemistry station - probably exited task"))
 				yield break;
 
-			callbackError = false;
+			isError = false;
 
 			yield return Utils.LerpFloatCallbackCoroutine(0, 1, _timeToMoveLabStandUp, f => {
-				if(Utils.NullCheck([chemistryStation, chemistryStation?.LabStand]) || !IsChemistryStationInUse(chemistryStation)) {
-					callbackError = true;
+				GetIsChemistryStationInUse(chemistryStation, out isInUse, ref isError);
+
+				if(isError || Utils.NullCheck(chemistryStation.LabStand) || !isInUse) {
+					isError = true;
 					return false;
 				}
 
@@ -341,7 +347,7 @@ namespace AutomatedTasksMod {
 				return true;
 			});
 
-			if(callbackError) {
+			if(isError) {
 				Melon<Mod>.Logger.Msg("Can't find lab stand to move - probably exited task");
 				yield break;
 			}
@@ -355,12 +361,15 @@ namespace AutomatedTasksMod {
 
 			//Up to 8 seconds
 			while(time < 8) {
-				if(Utils.NullCheck([chemistryStation, chemistryStation?.BoilingFlask, chemistryStation?.Burner], "Can't find chemistry station - probably exited task")) {
+				GetIsChemistryStationInUse(chemistryStation, out isInUse, ref isError);
+
+				if(isError || Utils.NullCheck([chemistryStation.BoilingFlask, chemistryStation.Burner])) {
+					Melon<Mod>.Logger.Msg("Can't find chemistry station - probably exited task");
 					TryToTurnBurnerOff(chemistryStation);
 					yield break;
 				}
 
-				if(!IsChemistryStationInUse(chemistryStation)) {
+				if(!isInUse) {
 					if(Utils.NullCheck(chemistryStation.CurrentCookOperation, "Probably exited task")) {
 						TryToTurnBurnerOff(chemistryStation);
 						yield break;
@@ -399,8 +408,15 @@ namespace AutomatedTasksMod {
 			chemistryStation.Burner.CurrentHeat = 0;
 		}
 
-		private static bool IsChemistryStationInUse(ChemistryStation chemistryStation) {
-			return chemistryStation.ItemContainer.childCount > 0;
+		private static void GetIsChemistryStationInUse(ChemistryStation chemistryStation, out bool isInUse, ref bool isError) {
+			if(Utils.NullCheck([chemistryStation, chemistryStation?.ItemContainer])) {
+				isError = true;
+				isInUse = false;
+				return;
+			}
+
+			isError = false;
+			isInUse = chemistryStation.ItemContainer.childCount > 0;
 		}
 	}
 }

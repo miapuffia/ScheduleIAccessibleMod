@@ -1,6 +1,8 @@
 ﻿using HarmonyLib;
+using Il2CppScheduleOne.ObjectScripts;
 using Il2CppScheduleOne.PlayerScripts;
 using Il2CppScheduleOne.Property.Utilities.Water;
+using Il2CppScheduleOne.UI.Stations;
 using MelonLoader;
 using System;
 using System.Collections.Generic;
@@ -20,23 +22,37 @@ namespace AutomatedTasksMod {
 			}
 		}
 
-		static System.Collections.IEnumerator AutomateSinkCoroutine(Tap tap) {
+		private static System.Collections.IEnumerator AutomateSinkCoroutine(Tap tap) {
+			bool isInUse;
+			bool isError = false;
+
 			float _waitBeforeStartingSinkTask = Prefs.GetTiming(Prefs.waitBeforeStartingSinkTask);
 
 			Melon<Mod>.Logger.Msg("Sink task started");
 
 			yield return new WaitForSeconds(_waitBeforeStartingSinkTask);
 
-			if(Utils.NullCheck(tap, "Can't find the tap the player is using"))
-				yield break;
+			Melon<Mod>.Logger.Msg("Holding open tap");
 
-			if(!tap.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? true) {
-				Melon<Mod>.Logger.Msg("Tap isn't associated with player - probably exited task");
+			GetIsTapInUse(tap, out isInUse, ref isError);
+
+			if(isError || !isInUse) {
+				Melon<Mod>.Logger.Msg("Can't find tap - probably exited task");
 				yield break;
 			}
 
-			Melon<Mod>.Logger.Msg("Holding open tap");
 			tap.IsHeldOpen = true;
+		}
+
+		private static void GetIsTapInUse(Tap tap, out bool isInUse, ref bool isError) {
+			if(Utils.NullCheck([tap, tap?.PlayerUserObject])) {
+				isError = true;
+				isInUse = false;
+				return;
+			}
+
+			isError = false;
+			isInUse = tap.PlayerUserObject.GetComponent<Player>()?.IsLocalPlayer ?? false;
 		}
 	}
 }

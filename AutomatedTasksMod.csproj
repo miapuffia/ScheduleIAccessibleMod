@@ -467,14 +467,15 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<Compile Include="patches\BrickPressPatch.cs" />
+		<Compile Include="enums\TimingTypeEnum.cs" />
+		<Compile Include="patches\BrickPressCanvasPatch.cs" />
 		<Compile Include="patches\CauldronCanvasPatch.cs" />
 		<Compile Include="patches\ChemistryStationCanvasPatch.cs" />
-		<Compile Include="patches\HarvestPatch.cs" />
+		<Compile Include="patches\InputPromptsCanvasPatch.cs" />
 		<Compile Include="patches\LabOvenCanvasPatch.cs" />
 		<Compile Include="patches\MixingStationCanvasPatch.cs" />
 		<Compile Include="patches\PackagingStationMk2Patch.cs" />
-		<Compile Include="patches\PackagingStationPatch.cs" />
+		<Compile Include="patches\PackagingStationCanvasPatch.cs" />
 		<Compile Include="patches\TapPatch.cs" />
 		<Compile Include="utils\Extensions.cs" />
 		<Compile Include="Mod.cs" />

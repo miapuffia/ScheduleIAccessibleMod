@@ -10,20 +10,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
+using UnityEngine.InputSystem.LowLevel;
 
 namespace AutomatedTasksMod {
 	internal class Utils {
 		internal static System.Collections.IEnumerator LerpPositionCoroutine(Transform transform, Vector3 targetPosition, float duration, Action onError = null) {
-			if(duration == 0) {
-				if(transform == null) {
-					onError?.Invoke();
-					yield break;
-				}
-
-				transform.position = targetPosition;
-				yield break;
-			}
-
 			float time = 0;
 			Vector3 startPosition = transform.position;
 
@@ -45,19 +38,16 @@ namespace AutomatedTasksMod {
 				time += Time.deltaTime;
 				yield return null;
 			}
-		}
 
-		internal static System.Collections.IEnumerator SinusoidalLerpPositionCoroutine(Transform transform, Vector3 targetPosition, float duration, Action onError = null) {
-			if(duration == 0) {
-				if(transform == null) {
-					onError?.Invoke();
-					yield break;
-				}
-
-				transform.position = targetPosition;
+			if(transform == null) {
+				onError?.Invoke();
 				yield break;
 			}
 
+			transform.position = targetPosition;
+		}
+
+		internal static System.Collections.IEnumerator SinusoidalLerpPositionCoroutine(Transform transform, Vector3 targetPosition, float duration, Action onError = null) {
 			float time = 0;
 			Vector3 startPosition = transform.position;
 
@@ -81,21 +71,16 @@ namespace AutomatedTasksMod {
 				time += Time.deltaTime;
 				yield return null;
 			}
-		}
 
-		internal static System.Collections.IEnumerator SinusoidalLerpPositionsCoroutine(Transform[] transforms, Vector3 positionModifier, float duration, Action onError = null) {
-			if(duration == 0) {
-				for(int i = 0; i < transforms.Length; i++) {
-					if(transforms[i] == null) {
-						onError?.Invoke();
-						yield break;
-					}
-
-					transforms[i].position = new Vector3(transforms[i].position.x + positionModifier.x, transforms[i].position.y + positionModifier.y, transforms[i].position.z + positionModifier.z);
-				}
+			if(transform == null) {
+				onError?.Invoke();
 				yield break;
 			}
 
+			transform.position = targetPosition;
+		}
+
+		internal static System.Collections.IEnumerator SinusoidalLerpPositionsCoroutine(Transform[] transforms, Vector3 positionModifier, float duration, Action onError = null) {
 			float time = 0;
 
 			Vector3[] startPositions = [.. transforms.Select(t => t.position)];
@@ -125,19 +110,18 @@ namespace AutomatedTasksMod {
 				time += Time.deltaTime;
 				yield return null;
 			}
-		}
 
-		internal static System.Collections.IEnumerator LerpRotationCoroutine(Transform transform, Vector3 targetAngle, float duration, Action onError = null) {
-			if(duration == 0) {
-				if(transform == null) {
+			for(int i = 0; i < transforms.Length; i++) {
+				if(transforms[i] == null) {
 					onError?.Invoke();
 					yield break;
 				}
 
-				transform.localEulerAngles = targetAngle;
-				yield break;
+				transforms[i].position = new Vector3(startPositions[i].x + positionModifier.x, startPositions[i].y + positionModifier.y, startPositions[i].z + positionModifier.z);
 			}
+		}
 
+		internal static System.Collections.IEnumerator LerpRotationCoroutine(Transform transform, Vector3 targetAngle, float duration, Action onError = null) {
 			float time = 0;
 			Vector3 startRotation = transform.localEulerAngles;
 
@@ -159,19 +143,16 @@ namespace AutomatedTasksMod {
 				time += Time.deltaTime;
 				yield return null;
 			}
-		}
 
-		internal static System.Collections.IEnumerator SinusoidalLerpRotationCoroutine(Transform transform, Vector3 targetAngle, float duration, Action onError = null) {
-			if(duration == 0) {
-				if(transform == null) {
-					onError?.Invoke();
-					yield break;
-				}
-
-				transform.localEulerAngles = targetAngle;
+			if(transform == null) {
+				onError?.Invoke();
 				yield break;
 			}
 
+			transform.localEulerAngles = targetAngle;
+		}
+
+		internal static System.Collections.IEnumerator SinusoidalLerpRotationCoroutine(Transform transform, Vector3 targetAngle, float duration, Action onError = null) {
 			float time = 0;
 			Vector3 startRotation = transform.localEulerAngles;
 
@@ -194,20 +175,16 @@ namespace AutomatedTasksMod {
 				time += Time.deltaTime;
 				yield return null;
 			}
-		}
 
-		internal static System.Collections.IEnumerator SinusoidalLerpPositionAndRotationCoroutine(Transform transform, Vector3 targetPosition, Vector3 targetAngle, float duration, Action onError = null) {
-			if(duration == 0) {
-				if(transform == null) {
-					onError?.Invoke();
-					yield break;
-				}
-
-				transform.position = targetPosition;
-				transform.localEulerAngles = targetAngle;
+			if(transform == null) {
+				onError?.Invoke();
 				yield break;
 			}
 
+			transform.localEulerAngles = targetAngle;
+		}
+
+		internal static System.Collections.IEnumerator SinusoidalLerpPositionAndRotationCoroutine(Transform transform, Vector3 targetPosition, Vector3 targetAngle, float duration, Action onError = null) {
 			float time = 0;
 			Vector3 startPosition = transform.position;
 			Vector3 startRotation = transform.localEulerAngles;
@@ -240,14 +217,17 @@ namespace AutomatedTasksMod {
 				time += Time.deltaTime;
 				yield return null;
 			}
-		}
 
-		internal static System.Collections.IEnumerator LerpFloatCallbackCoroutine(float start, float end, float duration, Func<float, bool> body) {
-			if(duration == 0) {
-				body.Invoke(end);
+			if(transform == null) {
+				onError?.Invoke();
 				yield break;
 			}
 
+			transform.position = targetPosition;
+			transform.localEulerAngles = targetAngle;
+		}
+
+		internal static System.Collections.IEnumerator LerpFloatCallbackCoroutine(float start, float end, float duration, Func<float, bool> body) {
 			float time = 0;
 			float delta = end - start;
 
@@ -260,6 +240,8 @@ namespace AutomatedTasksMod {
 				time += Time.deltaTime;
 				yield return null;
 			}
+
+			body.Invoke(end);
 		}
 
 		internal static bool NullCheck(object obj, string message = null) {
@@ -282,7 +264,7 @@ namespace AutomatedTasksMod {
 
 		internal static bool NullCheck(object[] obj, string message = null) {
 			foreach(object o in obj) {
-				if(o == null) {
+				if(NullCheck(o)) {
 					if(message != null)
 						Melon<Mod>.Logger.Msg(message);
 
@@ -293,15 +275,18 @@ namespace AutomatedTasksMod {
 			return false;
 		}
 
-		internal static bool ZeroCheck(long value, string message = null) {
-			if(value == 0) {
-				if(message != null)
-					Melon<Mod>.Logger.Msg(message);
+		internal static System.Collections.IEnumerator SimulateKeyPress(KeyControl keyControl) {
+			InputEventPtr eventPtr;
 
-				return true;
-			}
+			StateEvent.From(Keyboard.current.device, out eventPtr);
+			keyControl.WriteValueIntoEvent(0f, eventPtr);
+			InputSystem.QueueEvent(eventPtr);
 
-			return false;
+			yield return new WaitForSeconds(0.1f);
+
+			StateEvent.From(Keyboard.current.device, out eventPtr);
+			keyControl.WriteValueIntoEvent(1f, eventPtr);
+			InputSystem.QueueEvent(eventPtr);
 		}
 	}
 }

@@ -5,7 +5,10 @@ using Il2CppScheduleOne.ItemFramework;
 using Il2CppScheduleOne.ObjectScripts;
 using Il2CppScheduleOne.ObjectScripts.Soil;
 using Il2CppScheduleOne.PlayerScripts;
+using Il2CppScheduleOne.PlayerTasks;
 using Il2CppScheduleOne.UI;
+using Il2CppScheduleOne.UI.Stations;
+using Il2CppTMPro;
 using MelonLoader;
 using System;
 using System.Collections.Generic;
@@ -16,7 +19,7 @@ using UnityEngine;
 
 namespace AutomatedTasksMod {
 	[HarmonyPatch(typeof(InputPromptsCanvas), "LoadModule", [typeof(string)])]
-	public static class HarvestPatch {
+	public static class InputPromptsCanvasPatch {
 		private static void Postfix(InputPromptsCanvas __instance) {
 			switch(__instance.currentModuleLabel) {
 				case "pourable":
@@ -35,9 +38,10 @@ namespace AutomatedTasksMod {
 			}
 		}
 
-		static System.Collections.IEnumerator AutomatePouringSoilCoroutine() {
+		private static System.Collections.IEnumerator AutomatePouringSoilCoroutine() {
 			bool stepComplete;
-			bool callbackError;
+			bool isInUse;
+			bool isError = false;
 
 			float _waitBeforeStartingPouringSoilTask = Prefs.GetTiming(Prefs.waitBeforeStartingPouringSoilTask);
 			bool _pouringSoilToggle = Prefs.pouringSoilToggle.Value;
@@ -47,7 +51,7 @@ namespace AutomatedTasksMod {
 
 			yield return new WaitForSeconds(_waitBeforeStartingPouringSoilTask);
 
-			PourableSoil soil = GameObject.FindObjectsOfType<PourableSoil>().FirstOrDefault(p => p.TargetPot?.PlayerUserObject.GetComponent<Player>()?.IsLocalPlayer ?? false);
+			PourableSoil soil = GetPourableInUse<PourableSoil>();
 
 			if(Utils.NullCheck(soil)) {
 				//Don't print error message because we might not even be trying to do this task
@@ -63,15 +67,15 @@ namespace AutomatedTasksMod {
 
 			//It shouldn't take more than 10 cuts so this is a failsafe
 			for(int i = 0; i < 10; i++) {
-				if(Utils.NullCheck([soil, soil.TargetPot], "Can't find soil - probably exited task"))
-					yield break;
+				Melon<Mod>.Logger.Msg("Cutting open soil");
 
-				if(!soil.TargetPot.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? true) {
-					Melon<Mod>.Logger.Msg("Soil isn't associated with player - probably exited task");
+				GetIsPotInUse(soil, out isInUse, ref isError);
+
+				if(isError || !isInUse) {
+					Melon<Mod>.Logger.Msg("Can't find soil - probably exited task");
 					yield break;
 				}
 
-				Melon<Mod>.Logger.Msg("Cutting open soil");
 				soil.Cut();
 
 				if(soil.IsOpen) {
@@ -84,7 +88,7 @@ namespace AutomatedTasksMod {
 			}
 
 			if(!stepComplete) {
-				Melon<Mod>.Logger.Msg("Cutting open soil didn't complete after 20 attempts");
+				Melon<Mod>.Logger.Msg("Cutting open soil didn't complete after 10 attempts");
 				yield break;
 			}
 
@@ -92,19 +96,18 @@ namespace AutomatedTasksMod {
 
 			Melon<Mod>.Logger.Msg("Pouring soil");
 
-			if(Utils.NullCheck([soil, soil.TargetPot], "Can't find soil - probably exited task"))
-				yield break;
+			GetIsPotInUse(soil, out isInUse, ref isError);
 
-			if(!soil.TargetPot.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? true) {
-				Melon<Mod>.Logger.Msg("Soil isn't associated with player - probably exited task");
+			if(isError || !isInUse) {
+				Melon<Mod>.Logger.Msg("Can't find soil - probably exited task");
 				yield break;
 			}
 
-			callbackError = false;
+			isError = false;
 
-			yield return Utils.SinusoidalLerpRotationCoroutine(soil.transform, new Vector3(soil.transform.localEulerAngles.x, soil.transform.localEulerAngles.y, soil.transform.localEulerAngles.z - 180), _timeToRotateSoil, () => callbackError = true);
+			yield return Utils.SinusoidalLerpRotationCoroutine(soil.transform, new Vector3(soil.transform.localEulerAngles.x, soil.transform.localEulerAngles.y, soil.transform.localEulerAngles.z - 180), _timeToRotateSoil, () => isError = true);
 
-			if(callbackError) {
+			if(isError) {
 				Melon<Mod>.Logger.Msg("Can't find soil to rotate - probably exited task");
 				yield break;
 			}
@@ -112,10 +115,13 @@ namespace AutomatedTasksMod {
 			Melon<Mod>.Logger.Msg("Done pouring soil");
 		}
 
-		static System.Collections.IEnumerator AutomateSowingSeedCoroutine() {
+		private static System.Collections.IEnumerator AutomateSowingSeedCoroutine() {
 			Pot pot;
 			Vector3 moveToPosition;
-			bool callbackError;
+			bool stepComplete;
+			bool isInUse;
+			bool isError = false;
+			float time;
 
 			float _waitBeforeStartingSowingSeedTask = Prefs.GetTiming(Prefs.waitBeforeStartingSowingSeedTask);
 			bool _sowingSeedToggle = Prefs.sowingSeedToggle.Value;
@@ -139,6 +145,11 @@ namespace AutomatedTasksMod {
 			Melon<Mod>.Logger.Msg("Sow seed task started");
 			Melon<Mod>.Logger.Msg("Moving and rotating seed vial");
 
+			pot = GetPotInUse();
+
+			if(Utils.NullCheck(pot, "Can't find the pot the player is using"))
+				yield break;
+
 			if(Utils.NullCheck(seed.Vial, "Can't find seed vial - probably exited task"))
 				yield break;
 
@@ -147,44 +158,66 @@ namespace AutomatedTasksMod {
 
 			seed.Vial.transform.localEulerAngles = Vector3.zero;
 
-			callbackError = false;
+			isError = false;
 
-			yield return Utils.SinusoidalLerpPositionAndRotationCoroutine(seed.Vial.transform, moveToPosition, new Vector3(seed.Vial.transform.localEulerAngles.x + 180, seed.Vial.transform.localEulerAngles.y, seed.Vial.transform.localEulerAngles.z), _timeToMoveAndRotateSeedVial, () => callbackError = true);
+			yield return Utils.SinusoidalLerpPositionAndRotationCoroutine(seed.Vial.transform, moveToPosition, new Vector3(seed.Vial.transform.localEulerAngles.x + 180, seed.Vial.transform.localEulerAngles.y, seed.Vial.transform.localEulerAngles.z), _timeToMoveAndRotateSeedVial, () => isError = true);
 
-			if(callbackError) {
+			if(isError) {
 				Melon<Mod>.Logger.Msg("Can't find seed vial to move and rotate - probably exited task");
 				yield break;
 			}
 
 			yield return new WaitForSeconds(_waitBeforePoppingSeedVialCap);
 
-			if(Utils.NullCheck([seed, seed.Cap], "Can't find seed cap - probably exited task"))
+			Melon<Mod>.Logger.Msg("Popping seed cap");
+
+			if(Utils.NullCheck([seed, seed?.Cap], "Can't find seed cap - probably exited task"))
 				yield break;
 
-			Melon<Mod>.Logger.Msg("Popping seed cap");
 			seed.Cap.Pop();
 
-			yield return new WaitForSeconds(_waitBeforeMovingDirtChunks);
+			Melon<Mod>.Logger.Msg("Waiting for seed to fall into position");
 
-			pot = GameObject.FindObjectsOfType<Pot>().FirstOrDefault(p => p.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? false);
+			time = 0;
+			stepComplete = false;
 
-			if(Utils.NullCheck(pot, "Can't find the pot the player is using")) {
-				yield break;
-			}
+			//Up to 3 seconds
+			while(time < 3) {
+				GetIsPotInUse(pot, out isInUse, ref isError);
 
-			foreach(SoilChunk soilChunk in pot.SoilChunks) {
-				if(Utils.NullCheck(pot, "Can't find pot - probably exited task"))
-					yield break;
-
-				if(Utils.NullCheck(soilChunk, "Can't find soil chunk - probably exited task"))
-					yield break;
-
-				if(!pot.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? true) {
-					Melon<Mod>.Logger.Msg("Pot isn't associated with player - probably exited task");
+				if(isError || !isInUse || pot.SoilChunks.Length == 0 || Utils.NullCheck(pot.SoilChunks[0])) {
+					Melon<Mod>.Logger.Msg("Can't find soil chunks - probably exited task");
 					yield break;
 				}
 
+				if(pot.SoilChunks[0].ClickableEnabled) {
+					Melon<Mod>.Logger.Msg("Seed is in position");
+					stepComplete = true;
+					break;
+				}
+
+				time += Time.deltaTime;
+
+				yield return null;
+			}
+
+			if(!stepComplete) {
+				Melon<Mod>.Logger.Msg("Seed didn't fall into place after 3 seconds");
+				yield break;
+			}
+
+			yield return new WaitForSeconds(_waitBeforeMovingDirtChunks);
+
+			foreach(SoilChunk soilChunk in pot.SoilChunks) {
 				Melon<Mod>.Logger.Msg("Moving soil chunk");
+
+				GetIsPotInUse(pot, out isInUse, ref isError);
+
+				if(isError || Utils.NullCheck(soilChunk) || !isInUse) {
+					Melon<Mod>.Logger.Msg("Can't find soil chunk - probably exited task");
+					yield break;
+				}
+
 				soilChunk.StartClick(new RaycastHit());
 
 				yield return new WaitForSeconds(_waitBetweenMovingSoilChunks);
@@ -193,12 +226,12 @@ namespace AutomatedTasksMod {
 			Melon<Mod>.Logger.Msg("Done sowing seed");
 		}
 
-		static System.Collections.IEnumerator AutomatePouringWaterCoroutine() {
+		private static System.Collections.IEnumerator AutomatePouringWaterCoroutine() {
 			Vector3 moveToPosition;
-			Pot pot;
 			bool stepComplete;
 			bool stepComplete2;
-			bool callbackError;
+			bool isInUse;
+			bool isError = false;
 			float time;
 
 			float _waitBeforeStartingPouringWaterTask = Prefs.GetTiming(Prefs.waitBeforeStartingPouringWaterTask);
@@ -221,11 +254,11 @@ namespace AutomatedTasksMod {
 			Melon<Mod>.Logger.Msg("Water soil task started");
 			Melon<Mod>.Logger.Msg("Rotating watering can");
 
-			callbackError = false;
+			isError = false;
 
-			yield return Utils.SinusoidalLerpRotationCoroutine(wateringCan.transform, new Vector3(wateringCan.transform.localEulerAngles.x, wateringCan.transform.localEulerAngles.y, wateringCan.transform.localEulerAngles.z - 90), _timeToRotateWateringCan, () => callbackError = true);
+			yield return Utils.SinusoidalLerpRotationCoroutine(wateringCan.transform, new Vector3(wateringCan.transform.localEulerAngles.x, wateringCan.transform.localEulerAngles.y, wateringCan.transform.localEulerAngles.z - 90), _timeToRotateWateringCan, () => isError = true);
 
-			if(callbackError) {
+			if(isError) {
 				Melon<Mod>.Logger.Msg("Can't find watering can to rotate - probably exited task");
 				yield break;
 			}
@@ -235,36 +268,27 @@ namespace AutomatedTasksMod {
 
 			//There shouldn't be more than 10 watering spots so this is a failsafe
 			for(int i = 0; i < 10; i++) {
-				if(Utils.NullCheck(wateringCan, "Can't find watering can - probably exited task"))
-					yield break;
+				Melon<Mod>.Logger.Msg("Moving watering can");
 
-				pot = wateringCan.TargetPot;
+				GetIsPotInUse(wateringCan, out isInUse, ref isError);
 
-				if(Utils.NullCheck(pot, "Can't find watering can's pot - probably exited task"))
-					yield break;
-
-				if(!pot.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? true) {
-					Melon<Mod>.Logger.Msg("Watering can's pot isn't associated with player - probably exited task");
+				if(isError || !isInUse) {
+					Melon<Mod>.Logger.Msg("Can't find watering can - probably exited task");
 					yield break;
 				}
 
-				if(Utils.NullCheck(wateringCan.PourPoint, "Can't find watering can pour point - probably exited task"))
+				if(Utils.NullCheck([wateringCan.PourPoint, wateringCan.TargetPot.Target], "Can't find watering can components - probably exited task"))
 					yield break;
 
-				if(Utils.NullCheck(pot.Target, "Can't find watering can's pot's target - probably exited task"))
-					yield break;
-
-				Melon<Mod>.Logger.Msg("Moving watering can");
-
-				targetPosition = pot.Target.position;
+				targetPosition = wateringCan.TargetPot.Target.position;
 
 				moveToPosition = new Vector3(wateringCan.transform.position.x - (wateringCan.PourPoint.position.x - targetPosition.x), wateringCan.transform.position.y, wateringCan.transform.position.z - (wateringCan.PourPoint.position.z - targetPosition.z));
 
-				callbackError = false;
+				isError = false;
 
-				yield return Utils.SinusoidalLerpPositionCoroutine(wateringCan.transform, moveToPosition, _timeToMoveWateringCan, () => callbackError = true);
+				yield return Utils.SinusoidalLerpPositionCoroutine(wateringCan.transform, moveToPosition, _timeToMoveWateringCan, () => isError = true);
 
-				if(callbackError) {
+				if(isError) {
 					Melon<Mod>.Logger.Msg("Can't find watering can to move - probably exited task");
 					yield break;
 				}
@@ -274,10 +298,10 @@ namespace AutomatedTasksMod {
 
 				//Up to 5 seconds
 				while(time < 5) {
-					if(Utils.NullCheck([pot, pot.Target], "Can't find watering can's pot's target - probably exited task"))
+					if(Utils.NullCheck([wateringCan, wateringCan?.TargetPot, wateringCan?.TargetPot?.Target], "Can't find watering can pot target - probably exited task"))
 						yield break;
 
-					if(pot.Target.position != targetPosition) {
+					if(wateringCan.TargetPot.Target.position != targetPosition) {
 						Melon<Mod>.Logger.Msg("Done watering target");
 						stepComplete2 = true;
 						break;
@@ -293,7 +317,7 @@ namespace AutomatedTasksMod {
 					yield break;
 				}
 
-				if(pot.WaterLevel > pot.WaterCapacity - pot.WaterDrainPerHour) {
+				if(wateringCan.TargetPot.WaterLevel > wateringCan.TargetPot.WaterCapacity - wateringCan.TargetPot.WaterDrainPerHour) {
 					Melon<Mod>.Logger.Msg("Done watering");
 					stepComplete = true;
 					yield break;
@@ -306,12 +330,12 @@ namespace AutomatedTasksMod {
 			}
 		}
 
-		static System.Collections.IEnumerator AutomatePouringFertilizerCoroutine() {
-			Pot pot;
+		private static System.Collections.IEnumerator AutomatePouringFertilizerCoroutine() {
 			Vector3 targetPosition;
 			Vector3 moveToPosition;
 			bool stepComplete;
-			bool callbackError;
+			bool isInUse;
+			bool isError = false;
 
 			float _waitBeforeStartingPouringFertilizerTask = Prefs.GetTiming(Prefs.waitBeforeStartingPouringFertilizerTask);
 			bool _pouringFertilizerToggle = Prefs.pouringFertilizerToggle.Value;
@@ -320,7 +344,7 @@ namespace AutomatedTasksMod {
 
 			yield return new WaitForSeconds(_waitBeforeStartingPouringFertilizerTask);
 
-			PourableAdditive fertilizer = GameObject.FindObjectsOfType<PourableAdditive>().FirstOrDefault(m => m.TargetPot?.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? false);
+			PourableAdditive fertilizer = GetPourableInUse<PourableAdditive>();
 
 			if(Utils.NullCheck(fertilizer)) {
 				//Don't print error message because we might not even be trying to do this task
@@ -333,21 +357,19 @@ namespace AutomatedTasksMod {
 			Melon<Mod>.Logger.Msg("Pour fertilizer task started");
 			Melon<Mod>.Logger.Msg("Rotating fertilizer");
 
-			callbackError = false;
+			isError = false;
 
-			yield return Utils.SinusoidalLerpRotationCoroutine(fertilizer.transform, new Vector3(fertilizer.transform.localEulerAngles.x, fertilizer.transform.localEulerAngles.y, fertilizer.transform.localEulerAngles.z - 180), _timeToRotateFertilizer, () => callbackError = true);
+			yield return Utils.SinusoidalLerpRotationCoroutine(fertilizer.transform, new Vector3(fertilizer.transform.localEulerAngles.x, fertilizer.transform.localEulerAngles.y, fertilizer.transform.localEulerAngles.z - 180), _timeToRotateFertilizer, () => isError = true);
 
-			if(callbackError) {
+			if(isError) {
 				Melon<Mod>.Logger.Msg("Can't find fertilizer to rotate - probably exited task");
 				yield break;
 			}
 
 			Melon<Mod>.Logger.Msg("Pouring fertilizer");
 
-			if(Utils.NullCheck([fertilizer, fertilizer.TargetPot], "Can't find fertilizer - probably exited task"))
+			if(Utils.NullCheck([fertilizer, fertilizer?.TargetPot], "Can't find fertilizer - probably exited task"))
 				yield break;
-
-			pot = fertilizer.TargetPot;
 
 			float angle = 0;
 			int numSpiralRevolutions = 4;
@@ -355,28 +377,27 @@ namespace AutomatedTasksMod {
 			bool spiralingOut = true;
 			stepComplete = false;
 
-			for(float r = 0f; r >= 0; r = (-Math.Abs((angle / maxAngle) - 1) + 1) * pot.PotRadius) {
-				if(Utils.NullCheck([fertilizer, pot], "Can't find fertilizer - probably exited task"))
-					yield break;
+			for(float r = 0f; r >= 0; r = (-Math.Abs((angle / maxAngle) - 1) + 1) * fertilizer.TargetPot.PotRadius) {
+				GetIsPotInUse(fertilizer, out isInUse, ref isError);
 
-				if(!pot.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? true) {
-					Melon<Mod>.Logger.Msg("Fertilizer's pot isn't associated with player - probably exited task");
+				if(isError || !isInUse) {
+					Melon<Mod>.Logger.Msg("Can't find fertilizer - probably exited task");
 					yield break;
 				}
 
-				targetPosition = new Vector3(pot.PourableStartPoint.position.x + (Mathf.Sin(angle * Mathf.Deg2Rad) * r), 0, pot.PourableStartPoint.position.z + (Mathf.Cos(angle * Mathf.Deg2Rad) * r));
+				targetPosition = new Vector3(fertilizer.TargetPot.PourableStartPoint.position.x + (Mathf.Sin(angle * Mathf.Deg2Rad) * r), 0, fertilizer.TargetPot.PourableStartPoint.position.z + (Mathf.Cos(angle * Mathf.Deg2Rad) * r));
 
 				moveToPosition = new Vector3(fertilizer.transform.position.x - (fertilizer.PourPoint.position.x - targetPosition.x), fertilizer.transform.position.y, fertilizer.transform.position.z - (fertilizer.PourPoint.position.z - targetPosition.z));
 
-				callbackError = false;
+				isError = false;
 
-				yield return Utils.LerpPositionCoroutine(fertilizer.transform, moveToPosition, _timeToMoveFertilizer, () => callbackError = true);
+				yield return Utils.LerpPositionCoroutine(fertilizer.transform, moveToPosition, _timeToMoveFertilizer, () => isError = true);
 
-				if(callbackError) {
-					if(Utils.NullCheck(pot, "Can't find fertilizer's pot - probably exited task"))
+				if(isError) {
+					if(Utils.NullCheck([fertilizer, fertilizer?.TargetPot], "Can't find fertilizer pot - probably exited task"))
 						yield break;
 
-					if(pot.AppliedAdditives.Count > 0) {
+					if(fertilizer.TargetPot.AppliedAdditives.Count > 0) {
 						Melon<Mod>.Logger.Msg("Done pouring fertilizer");
 					} else {
 						Melon<Mod>.Logger.Msg("Can't find fertilizer to move - probably exited task");
@@ -385,7 +406,10 @@ namespace AutomatedTasksMod {
 					yield break;
 				}
 
-				angle += 10 / (float) Math.Max(r / pot.PotRadius, 0.1);
+				if(Utils.NullCheck([fertilizer, fertilizer?.TargetPot], "Can't find fertilizer pot - probably exited task"))
+					yield break;
+
+				angle += 10 / (float) Math.Max(r / fertilizer.TargetPot.PotRadius, 0.1);
 
 				if(spiralingOut && angle > maxAngle) {
 					Melon<Mod>.Logger.Msg("Pouring fertilizer did not complete after reaching the pot's radius - going back to center");
@@ -399,8 +423,10 @@ namespace AutomatedTasksMod {
 			}
 		}
 
-		static System.Collections.IEnumerator AutomateHarvestingCoroutine() {
+		private static System.Collections.IEnumerator AutomateHarvestingCoroutine() {
 			Pot pot;
+			bool isInUse;
+			bool isError = false;
 
 			float _waitBeforeStartingHarvestingTask = Prefs.GetTiming(Prefs.waitBeforeStartingHarvestingTask);
 
@@ -408,7 +434,7 @@ namespace AutomatedTasksMod {
 
 			yield return new WaitForSeconds(_waitBeforeStartingHarvestingTask);
 
-			pot = GameObject.FindObjectsOfType<Pot>().FirstOrDefault(p => p.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? false);
+			pot = GetPotInUse();
 
 			if(Utils.NullCheck(pot, "Can't find the pot the player is using - probably exited task"))
 				yield break;
@@ -418,11 +444,10 @@ namespace AutomatedTasksMod {
 			foreach(PlantHarvestable harvestable in pot.GetComponentsInChildren<PlantHarvestable>()) {
 				Melon<Mod>.Logger.Msg("Harvesting plant piece");
 
-				if(Utils.NullCheck(pot, "Can't find the pot the player is using - probably exited task"))
-					yield break;
+				GetIsPotInUse(pot, out isInUse, ref isError);
 
-				if(!pot.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? true) {
-					Melon<Mod>.Logger.Msg("Pot isn't associated with player - probably exited task");
+				if(isError || !isInUse) {
+					Melon<Mod>.Logger.Msg("Can't find the pot the player is using - probably exited task");
 					yield break;
 				}
 
@@ -437,6 +462,35 @@ namespace AutomatedTasksMod {
 			}
 
 			Melon<Mod>.Logger.Msg("Done harvesting");
+		}
+
+		private static T GetPourableInUse<T>() where T : Pourable {
+			return GameObject.FindObjectsOfType<T>().FirstOrDefault(p => p.TargetPot?.PlayerUserObject.GetComponent<Player>()?.IsLocalPlayer ?? false);
+		}
+
+		private static Pot GetPotInUse() {
+			return GameObject.FindObjectsOfType<Pot>().FirstOrDefault(p => p.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? false);
+		}
+
+		private static void GetIsPotInUse(Pourable pourable, out bool isInUse, ref bool isError) {
+			if(Utils.NullCheck([pourable])) {
+				isError = true;
+				isInUse = false;
+				return;
+			}
+
+			GetIsPotInUse(pourable.TargetPot, out isInUse, ref isError);
+		}
+
+		private static void GetIsPotInUse(Pot pot, out bool isInUse, ref bool isError) {
+			if(Utils.NullCheck([pot, pot?.PlayerUserObject])) {
+				isError = true;
+				isInUse = false;
+				return;
+			}
+
+			isError = false;
+			isInUse = pot.PlayerUserObject.GetComponent<Player>()?.IsLocalPlayer ?? false;
 		}
 
 		private static bool IsUsingElectricTrimmers(Player player) {

@@ -14,22 +14,23 @@ using UnityEngine;
 namespace AutomatedTasksMod {
 	[HarmonyPatch(typeof(CauldronCanvas), "BeginButtonPressed")]
 	internal static class CauldronCanvasPatch {
-		private static void Postfix(CauldronCanvas __instance) {
+		private static void Prefix(CauldronCanvas __instance) {
 			if(Prefs.cauldronToggle.Value) {
-				MelonCoroutines.Start(AutomateCauldronCoroutine());
+				MelonCoroutines.Start(AutomateCauldronCoroutine(__instance));
 			} else {
 				Melon<Mod>.Logger.Msg("Automate cauldron disabled in settings");
 			}
 		}
 
-		static System.Collections.IEnumerator AutomateCauldronCoroutine() {
+		private static System.Collections.IEnumerator AutomateCauldronCoroutine(CauldronCanvas cauldronCanvas) {
 			Cauldron cauldron;
 			PourableModule gasoline;
 			Vector3 moveToPosition;
 			Vector3 moveBackToPosition;
 			Vector3 rotateToAngles;
 			bool stepComplete;
-			bool callbackError;
+			bool isInUse;
+			bool isError = false;
 			float time;
 
 			float _waitBeforeStartingCauldronTask = Prefs.GetTiming(Prefs.waitBeforeStartingCauldronTask);
@@ -43,14 +44,17 @@ namespace AutomatedTasksMod {
 
 			Melon<Mod>.Logger.Msg("Cauldron task started");
 
-			yield return new WaitForSeconds(_waitBeforeStartingCauldronTask);
-
-			cauldron = GameObject.FindObjectsOfType<Cauldron>().FirstOrDefault(c => c.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? false);
-
-			if(Utils.NullCheck([cauldron, cauldron.ItemContainer], "Can't find the cauldron the player is using"))
+			if(Utils.NullCheck([cauldronCanvas, cauldronCanvas?.Cauldron], "Can't find cauldron - probably exited task"))
 				yield break;
 
+			cauldron = cauldronCanvas.Cauldron;
+
+			yield return new WaitForSeconds(_waitBeforeStartingCauldronTask);
+
 			Melon<Mod>.Logger.Msg("Moving gasoline to pot");
+
+			if(Utils.NullCheck([cauldron, cauldron?.ItemContainer], "Can't find cauldron container - probably exited task"))
+				yield break;
 
 			gasoline = cauldron.ItemContainer.GetComponentInChildren<PourableModule>();
 
@@ -68,11 +72,11 @@ namespace AutomatedTasksMod {
 
 			gasoline.transform.localEulerAngles = Vector3.zero;
 
-			callbackError = false;
+			isError = false;
 
-			yield return Utils.SinusoidalLerpPositionAndRotationCoroutine(gasoline.transform, moveToPosition, Vector3.zero, _timeToMoveGasolineToPot, () => callbackError = true);
+			yield return Utils.SinusoidalLerpPositionAndRotationCoroutine(gasoline.transform, moveToPosition, Vector3.zero, _timeToMoveGasolineToPot, () => isError = true);
 
-			if(callbackError) {
+			if(isError) {
 				Melon<Mod>.Logger.Msg("Can't find gasoline - probably exited task");
 				yield break;
 			}
@@ -82,9 +86,9 @@ namespace AutomatedTasksMod {
 			gasoline.transform.localEulerAngles = Vector3.zero;
 			rotateToAngles = new Vector3(90, 0, 0);
 
-			yield return Utils.SinusoidalLerpPositionAndRotationCoroutine(gasoline.transform, moveToPosition, rotateToAngles, _timeToRotateGasolineToPot, () => callbackError = true);
+			yield return Utils.SinusoidalLerpPositionAndRotationCoroutine(gasoline.transform, moveToPosition, rotateToAngles, _timeToRotateGasolineToPot, () => isError = true);
 
-			if(callbackError) {
+			if(isError) {
 				Melon<Mod>.Logger.Msg("Can't find gasoline to move and rotate - probably exited task");
 				yield break;
 			}
@@ -122,36 +126,44 @@ namespace AutomatedTasksMod {
 
 			gasoline.transform.localEulerAngles = new Vector3(90, 0, 0);
 
-			callbackError = false;
+			isError = false;
 
-			yield return Utils.SinusoidalLerpPositionAndRotationCoroutine(gasoline.transform, moveBackToPosition, Vector3.zero, _timeToRotateAndMoveGasolineFromPotBack, () => callbackError = true);
+			yield return Utils.SinusoidalLerpPositionAndRotationCoroutine(gasoline.transform, moveBackToPosition, Vector3.zero, _timeToRotateAndMoveGasolineFromPotBack, () => isError = true);
 
-			if(callbackError) {
+			if(isError) {
 				Melon<Mod>.Logger.Msg("Can't find gasoline to move and rotate - probably exited task");
 				yield break;
 			}
 
 			yield return new WaitForSeconds(_waitBeforeMovingProductsToPot);
 
-			if(Utils.NullCheck([cauldron, cauldron.ItemContainer], "Can't find the cauldron the player is using"))
-				yield break;
-
 			Melon<Mod>.Logger.Msg("Moving solid ingredients");
+
+			GetIsCauldronInUse(cauldron, cauldronCanvas, out isInUse, ref isError);
+
+			if(isError || Utils.NullCheck(cauldron.ItemContainer) || !isInUse) {
+				Melon<Mod>.Logger.Msg("Can't find the cauldron the player is using");
+				yield break;
+			}
 
 			foreach(IngredientPiece ingredientPiece in cauldron.ItemContainer.GetComponentsInChildren<IngredientPiece>()) {
 				Melon<Mod>.Logger.Msg("Moving ingredient to pot");
 
-				if(Utils.NullCheck(cauldron.CauldronFillable, "Can't find pot - probably exited task"))
+				GetIsCauldronInUse(cauldron, cauldronCanvas, out isInUse, ref isError);
+
+				if(isError || Utils.NullCheck([cauldron.CauldronFillable]) || !isInUse) {
+					Melon<Mod>.Logger.Msg("Can't find the cauldron the player is using");
 					yield break;
+				}
 
 				moveToPosition = ingredientPiece.transform.position.Between(cauldron.CauldronFillable.transform.position, 0.8f);
 				moveToPosition.y += 0.4f;
 
-				callbackError = false;
+				isError = false;
 
-				yield return Utils.SinusoidalLerpPositionCoroutine(ingredientPiece.transform, moveToPosition, _timeToMoveProductToPot, () => callbackError = true);
+				yield return Utils.SinusoidalLerpPositionCoroutine(ingredientPiece.transform, moveToPosition, _timeToMoveProductToPot, () => isError = true);
 
-				if(callbackError) {
+				if(isError) {
 					Melon<Mod>.Logger.Msg("Can't find ingredient - probably exited task");
 					yield break;
 				}
@@ -159,25 +171,60 @@ namespace AutomatedTasksMod {
 				yield return new WaitForSeconds(_waitBetweenMovingProductsToPot);
 			}
 
-			yield return new WaitForSeconds(_waitBeforePressingCauldronStartButton);
+			Melon<Mod>.Logger.Msg("Waiting for cauldron to be startable");
 
-			if(Utils.NullCheck([cauldron, cauldron.StartButtonClickable], "Can't find mixing station start button - probably exited task"))
-				yield break;
+			stepComplete = false;
+			time = 0;
 
-			if(!IsCauldronInUse(cauldron)) {
-				Melon<Mod>.Logger.Msg("Probably exited task");
+			//Up to 3 seconds
+			while(time < 3) {
+				if(Utils.NullCheck([cauldron, cauldron?.StartButtonClickable], "Can't find cauldron start button - probably exited task"))
+					yield break;
+
+				if(cauldron.StartButtonClickable.ClickableEnabled) {
+					Melon<Mod>.Logger.Msg("Cauldron is startable");
+					stepComplete = true;
+					break;
+				}
+
+				time += Time.deltaTime;
+
+				yield return null;
+			}
+
+			if(!stepComplete) {
+				Melon<Mod>.Logger.Msg("Cauldron didn't become startable after 3 seconds");
 				yield break;
 			}
 
+			yield return new WaitForSeconds(_waitBeforePressingCauldronStartButton);
+
 			Melon<Mod>.Logger.Msg("Pressing start button");
+
+			if(Utils.NullCheck([cauldron, cauldron?.StartButtonClickable], "Can't find mixing station start button - probably exited task"))
+				yield break;
+
+			GetIsCauldronInUse(cauldron, cauldronCanvas, out isInUse, ref isError);
+
+			if(isError || !isInUse) {
+				Melon<Mod>.Logger.Msg("Probably exited task");
+				yield break;
+			}
 
 			cauldron.StartButtonClickable.StartClick(new RaycastHit());
 
 			Melon<Mod>.Logger.Msg("Done mixing");
 		}
 
-		private static bool IsCauldronInUse(Cauldron cauldron) {
-			return (cauldron.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? false) && (!GameObject.FindObjectOfType<CauldronCanvas>()?.Canvas?.enabled ?? false);
+		private static void GetIsCauldronInUse(Cauldron cauldron, CauldronCanvas cauldronCanvas, out bool isInUse, ref bool isError) {
+			if(Utils.NullCheck([cauldron, cauldron?.PlayerUserObject, cauldronCanvas, cauldronCanvas?.Canvas])) {
+				isError = true;
+				isInUse = false;
+				return;
+			}
+
+			isError = false;
+			isInUse = (cauldron.PlayerUserObject.GetComponent<Player>()?.IsLocalPlayer ?? false) && !cauldronCanvas.Canvas.enabled;
 		}
 	}
 }

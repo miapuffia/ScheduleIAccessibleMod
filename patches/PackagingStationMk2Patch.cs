@@ -1,5 +1,7 @@
 ﻿using HarmonyLib;
+using Il2CppScheduleOne.ObjectScripts;
 using Il2CppScheduleOne.Packaging;
+using Il2CppScheduleOne.UI.Stations;
 using MelonLoader;
 using System;
 using System.Collections.Generic;
@@ -19,12 +21,14 @@ namespace AutomatedTasksMod {
 			}
 		}
 
-		static System.Collections.IEnumerator AutomatePackagingStationMk2Coroutine(PackagingStationMk2 packagingStationMk2) {
+		private static System.Collections.IEnumerator AutomatePackagingStationMk2Coroutine(PackagingStationMk2 packagingStationMk2) {
 			PackagingTool packagingTool;
 			FunctionalPackaging functionalPackaging = null;
 			int maxProductsInPackaging;
 			int numFinishedPackaging;
 			bool stepComplete;
+			bool isInUse;
+			bool isError = false;
 			float time;
 
 			float _waitBeforeStartingPackagingMk2Task = Prefs.GetTiming(Prefs.waitBeforeStartingPackagingMk2Task);
@@ -33,29 +37,27 @@ namespace AutomatedTasksMod {
 
 			yield return new WaitForSeconds(_waitBeforeStartingPackagingMk2Task);
 
-			if(Utils.NullCheck(packagingStationMk2, "Can't find packaging station Mk2 - probably exited task"))
-				yield break;
+			GetIsPackagingStationMk2InUse(packagingStationMk2, out isInUse, ref isError);
 
-			if(!IsPackagingStationMk2InUse(packagingStationMk2)) {
-				Melon<Mod>.Logger.Msg("Probably exited task");
+			if(isError || !isInUse) {
+				Melon<Mod>.Logger.Msg("Can't find packaging station Mk2 - probably exited task");
 				yield break;
 			}
 
 			packagingTool = packagingStationMk2.GetComponentInChildren<PackagingTool>();
 
-			if(Utils.NullCheck([packagingTool, packagingTool.PackagingContainer], "Can't find packaging tool - probably exited task"))
+			if(Utils.NullCheck(packagingTool, "Can't find packaging tool - probably exited task"))
 				yield break;
 
 			while(packagingTool.ProductInHopper > 0) {
-				if(Utils.NullCheck([packagingStationMk2, packagingTool, packagingTool.PackagingContainer], "Can't find packaging tool - probably exited task"))
-					yield break;
+				Melon<Mod>.Logger.Msg("Dropping product");
 
-				if(!IsPackagingStationMk2InUse(packagingStationMk2)) {
-					Melon<Mod>.Logger.Msg("Probably exited task");
+				GetIsPackagingStationMk2InUse(packagingStationMk2, out isInUse, ref isError);
+
+				if(isError || Utils.NullCheck([packagingTool, packagingTool?.PackagingContainer]) || !isInUse) {
+					Melon<Mod>.Logger.Msg("Can't find packaging tool - probably exited task");
 					yield break;
 				}
-
-				Melon<Mod>.Logger.Msg("Dropping product");
 
 				packagingTool.DropProduct();
 
@@ -68,11 +70,10 @@ namespace AutomatedTasksMod {
 
 				//Up to 3 seconds
 				while(time < 3) {
-					if(Utils.NullCheck([packagingTool, packagingTool.PackagingContainer], "Can't find packaging tool - probably exited task"))
-						yield break;
+					GetIsPackagingStationMk2InUse(packagingStationMk2, out isInUse, ref isError);
 
-					if(!IsPackagingStationMk2InUse(packagingStationMk2)) {
-						Melon<Mod>.Logger.Msg("Probably exited task");
+					if(isError || Utils.NullCheck([packagingTool, packagingTool?.PackagingContainer]) || !isInUse) {
+						Melon<Mod>.Logger.Msg("Can't find packaging tool - probably exited task");
 						yield break;
 					}
 
@@ -107,18 +108,17 @@ namespace AutomatedTasksMod {
 
 					//Up to 3 seconds
 					while(time < 3) {
-						if(Utils.NullCheck([packagingStationMk2, packagingTool, packagingTool.PackagingContainer], "Can't find packaging tool - probably exited task"))
-							yield break;
+						GetIsPackagingStationMk2InUse(packagingStationMk2, out isInUse, ref isError);
 
-						if(!IsPackagingStationMk2InUse(packagingStationMk2)) {
-							Melon<Mod>.Logger.Msg("Probably exited task");
+						if(isError || Utils.NullCheck(packagingTool) || !isInUse) {
+							Melon<Mod>.Logger.Msg("Can't find packaging tool - probably exited task");
 							yield break;
 						}
 
 						packagingTool.conveyorVelocity = 1f;
 
 						if(packagingTool.finalizeCoroutine != null) {
-							Melon<Mod>.Logger.Msg("Full packaging kicked to hatch");
+							Melon<Mod>.Logger.Msg("Full packaging kick animation started");
 							stepComplete = true;
 							break;
 						}
@@ -133,19 +133,22 @@ namespace AutomatedTasksMod {
 						yield break;
 					}
 
+					Melon<Mod>.Logger.Msg("Waiting for kick animation to end");
+
 					stepComplete = false;
 					time = 0;
 
+					//Up to 3 seconds
 					while(time < 3) {
-						if(Utils.NullCheck([packagingStationMk2, packagingTool], "Can't find packaging tool - probably exited task"))
-							yield break;
+						GetIsPackagingStationMk2InUse(packagingStationMk2, out isInUse, ref isError);
 
-						if(!IsPackagingStationMk2InUse(packagingStationMk2)) {
-							Melon<Mod>.Logger.Msg("Probably exited task");
+						if(isError || Utils.NullCheck(packagingTool) || !isInUse) {
+							Melon<Mod>.Logger.Msg("Can't find packaging tool - probably exited task");
 							yield break;
 						}
 
 						if(packagingTool.finalizeCoroutine == null) {
+							Melon<Mod>.Logger.Msg("Kick animation ended");
 							stepComplete = true;
 							break;
 						}
@@ -160,6 +163,9 @@ namespace AutomatedTasksMod {
 						yield break;
 					}
 
+					if(Utils.NullCheck([packagingTool, packagingTool?.PackagingContainer], "Can't find packaging tool - probably exited task"))
+						yield break;
+
 					if(packagingTool.PackagingContainer.childCount == 0) {
 						Melon<Mod>.Logger.Msg("Done packaging or exited task");
 						stepComplete = true;
@@ -169,8 +175,15 @@ namespace AutomatedTasksMod {
 			}
 		}
 
-		private static bool IsPackagingStationMk2InUse(PackagingStationMk2 packagingStationMk2) {
-			return packagingStationMk2.visualsLocked;
+		private static void GetIsPackagingStationMk2InUse(PackagingStationMk2 packagingStationMk2, out bool isInUse, ref bool isError) {
+			if(Utils.NullCheck(packagingStationMk2)) {
+				isError = true;
+				isInUse = false;
+				return;
+			}
+
+			isError = false;
+			isInUse = packagingStationMk2.visualsLocked;
 		}
 	}
 }

@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -70,7 +71,7 @@ namespace AutomatedTasksMod {
 		internal static MelonPreferences_Entry<float> timeToMoveProductToPackaging;
 		internal static MelonPreferences_Entry<float> waitBeforeMovingPackagingToHatch;
 		internal static MelonPreferences_Entry<float> timeToMovePackagingToHatch;
-		internal static MelonPreferences_Entry<float> waitAfterMovingPackagingToHatch;
+		internal static MelonPreferences_Entry<float> waitBetweenMovingPackagingToHatch;
 
 		//Packaging station Mk2
 		internal static MelonPreferences_Category packagingStationMk2Timings;
@@ -123,6 +124,8 @@ namespace AutomatedTasksMod {
 		internal static MelonPreferences_Entry<float> waitBetweenMovingProductsToTray;
 		internal static MelonPreferences_Entry<float> waitBeforeClosingLabOvenDoorCocaine;
 		internal static MelonPreferences_Entry<float> waitBeforePressingLabOvenStartButton;
+		internal static MelonPreferences_Entry<float> waitBeforeMovingHammerOverTray;
+		internal static MelonPreferences_Entry<float> timeToMoveHammerOverTray;
 
 		//Cauldron
 		internal static MelonPreferences_Category cauldronTimings;
@@ -139,168 +142,201 @@ namespace AutomatedTasksMod {
 			PrettyInt categoryIndex = new(0);
 			PrettyInt entryIndex = new(0);
 
-			toggles = MelonPreferences.CreateCategory($"AutomatedTasksMod_{++categoryIndex}_toggles", "Task Toggles");
-
 			//Task toggles
-			pouringSoilToggle = toggles.CreateEntry<bool>($"automate_{++entryIndex}_pouringSoilToggle", true, "Automate pouring soil");
-			sowingSeedToggle = toggles.CreateEntry<bool>($"automate_{++entryIndex}_sowingSeedToggle", true, "Automate sowing seed");
-			pouringWaterToggle = toggles.CreateEntry<bool>($"automate_{++entryIndex}_pouringWaterToggle", true, "Automate pouring water");
-			pouringFertilizerToggle = toggles.CreateEntry<bool>($"automate_{++entryIndex}_pouringFertilizerToggle", true, "Automate pouring fertilizer");
-			harvestingToggle = toggles.CreateEntry<bool>($"automate_{++entryIndex}_harvestingToggle", true, "Automate harvesting");
-			sinkToggle = toggles.CreateEntry<bool>($"automate_{++entryIndex}_sinkToggle", true, "Automate sink tap");
-			packagingStationToggle = toggles.CreateEntry<bool>($"automate_{++entryIndex}_packagingStationToggle", true, "Automate packaging station");
-			packagingStationMk2Toggle = toggles.CreateEntry<bool>($"automate_{++entryIndex}_packagingStationMk2Toggle", true, "Automate packaging MK2 station");
-			brickPressToggle = toggles.CreateEntry<bool>($"automate_{++entryIndex}_brickPressToggle", true, "Automate brick press station");
-			mixingStationToggle = toggles.CreateEntry<bool>($"automate_{++entryIndex}_mixingStationToggle", true, "Automate mixing station");
-			chemistryStationToggle = toggles.CreateEntry<bool>($"automate_{++entryIndex}_chemistryStationToggle", true, "Automate chemistry station");
-			labOvenToggle = toggles.CreateEntry<bool>($"automate_{++entryIndex}_labOvenToggle", true, "Automate lab oven");
-			cauldronToggle = toggles.CreateEntry<bool>($"automate_{++entryIndex}_cauldronToggle", true, "Automate cauldron");
+			CreateCategory(ref toggles, "AutomatedTasksMod", ++categoryIndex, "Task Toggles");
+			CreateToggleEntry(toggles, ref pouringSoilToggle, "automate", ++entryIndex, "Automate pouring soil");
+			CreateToggleEntry(toggles, ref sowingSeedToggle, "automate", ++entryIndex, "Automate sowing seed");
+			CreateToggleEntry(toggles, ref pouringWaterToggle, "automate", ++entryIndex, "Automate pouring water");
+			CreateToggleEntry(toggles, ref pouringFertilizerToggle, "automate", ++entryIndex, "Automate pouring fertilizer");
+			CreateToggleEntry(toggles, ref harvestingToggle, "automate", ++entryIndex, "Automate harvesting");
+			CreateToggleEntry(toggles, ref sinkToggle, "automate", ++entryIndex, "Automate sink tap");
+			CreateToggleEntry(toggles, ref packagingStationToggle, "automate", ++entryIndex, "Automate packaging station");
+			CreateToggleEntry(toggles, ref packagingStationMk2Toggle, "automate", ++entryIndex, "Automate packaging MK2 station");
+			CreateToggleEntry(toggles, ref brickPressToggle, "automate", ++entryIndex, "Automate brick press station");
+			CreateToggleEntry(toggles, ref mixingStationToggle, "automate", ++entryIndex, "Automate mixing station");
+			CreateToggleEntry(toggles, ref chemistryStationToggle, "automate", ++entryIndex, "Automate chemistry station");
+			CreateToggleEntry(toggles, ref labOvenToggle, "automate", ++entryIndex, "Automate lab oven");
+			CreateToggleEntry(toggles, ref cauldronToggle, "automate", ++entryIndex, "Automate cauldron");
 
 			entryIndex = new(0);
 
-			taskTimings = MelonPreferences.CreateCategory($"AutomatedTasksMod_{++categoryIndex}_timings", "Task Timings (in seconds)");
-			timingsPreset = taskTimings.CreateEntry<SpeedEnum>($"timings_{++entryIndex}_timingsPreset", SpeedEnum.Custom_Values_Below, "Apply timings preset to every value");
+			CreateCategory(ref taskTimings, "AutomatedTasksMod", ++categoryIndex, "Task Timings (in seconds)");
+			CreateGenericEntry(taskTimings, ref timingsPreset, "timings", ++entryIndex, SpeedEnum.Custom_Values_Below, "Apply timings preset to every value");
 
 			entryIndex = new(0);
 
 			//Pouring soil
-			pouringSoilTimings = MelonPreferences.CreateCategory($"AutomatedTasksMod_{++categoryIndex}_pouringSoilTimings", "Pouring Soil");
-			waitBeforeStartingPouringSoilTask = pouringSoilTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBeforeStartingPouringSoilTask", 0.5f, "Wait before starting pouring soil task");
-			waitBetweenSoilCuts = pouringSoilTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBetweenSoilCuts", 0.1f, "Wait between cutting each soil bag segment");
-			waitBeforeRotatingSoil = pouringSoilTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBeforeRotatingSoil", 0.2f, "Wait before rotating soil");
-			timeToRotateSoil = pouringSoilTimings.CreateEntry<float>($"timing_{++entryIndex}_timeToRotateSoil", 1.5f, "Time it takes to rotate soil");
+			CreateCategory(ref pouringSoilTimings, "AutomatedTasksMod", ++categoryIndex, "Pouring Soil");
+			CreateTimingEntry(pouringSoilTimings, ref waitBeforeStartingPouringSoilTask, "timing", ++entryIndex, 0.5f, "Wait before starting pouring soil task", TimingTypeEnum.WaitInitial);
+			CreateTimingEntry(pouringSoilTimings, ref waitBetweenSoilCuts, "timing", ++entryIndex, 0.1f, "Wait between cutting each soil bag segment", TimingTypeEnum.WaitBetween);
+			CreateTimingEntry(pouringSoilTimings, ref waitBeforeRotatingSoil, "timing", ++entryIndex, 0.2f, "Wait before rotating soil", TimingTypeEnum.WaitBefore);
+			CreateTimingEntry(pouringSoilTimings, ref timeToRotateSoil, "timing", ++entryIndex, 1.5f, "Time it takes to rotate soil", TimingTypeEnum.Rotate);
 
 			entryIndex = new(0);
 
 			//Sowing seed
-			sowingSeedTimings = MelonPreferences.CreateCategory($"AutomatedTasksMod_{++categoryIndex}_sowingSeedTimings", "Sowing Seed");
-			waitBeforeStartingSowingSeedTask = sowingSeedTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBeforeStartingSowingTask", 0.5f, "Wait before starting sowing seed task");
-			timeToMoveAndRotateSeedVial = sowingSeedTimings.CreateEntry<float>($"timing_{++entryIndex}_timeToMoveAndRotateSeedVial", 1.5f, "Time it takes to rotate and move seed vial");
-			waitBeforePoppingSeedVialCap = sowingSeedTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBeforePoppingSeedVialCap", 0.2f, "Wait before popping seed vial cap");
-			waitBeforeMovingDirtChunks = sowingSeedTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBeforeMovingDirtChunks", 0.5f, "Wait before moving dirt chunks");
-			waitBetweenMovingSoilChunks = sowingSeedTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBetweenMovingSoilChunks", 0.5f, "Wait between moving each soil chunk");
+			CreateCategory(ref sowingSeedTimings, "AutomatedTasksMod", ++categoryIndex, "Sowing Seed");
+			CreateTimingEntry(sowingSeedTimings, ref waitBeforeStartingSowingSeedTask, "timing", ++entryIndex, 0.5f, "Wait before starting sowing seed task", TimingTypeEnum.WaitInitial);
+			CreateTimingEntry(sowingSeedTimings, ref timeToMoveAndRotateSeedVial, "timing", ++entryIndex, 1.5f, "Time it takes to move and rotate seed vial", TimingTypeEnum.MoveRotate);
+			CreateTimingEntry(sowingSeedTimings, ref waitBeforePoppingSeedVialCap, "timing", ++entryIndex, 0.2f, "Wait before popping seed vial cap", TimingTypeEnum.WaitBefore);
+			CreateTimingEntry(sowingSeedTimings, ref waitBeforeMovingDirtChunks, "timing", ++entryIndex, 0.2f, "Wait before moving dirt chunks", TimingTypeEnum.WaitBefore);
+			CreateTimingEntry(sowingSeedTimings, ref waitBetweenMovingSoilChunks, "timing", ++entryIndex, 0.5f, "Wait between moving each soil chunk", TimingTypeEnum.WaitBetween);
 
 			entryIndex = new(0);
 
 			//Pouring water
-			pouringWaterTimings = MelonPreferences.CreateCategory($"AutomatedTasksMod_{++categoryIndex}_pouringWaterTimings", "Pouring Water");
-			waitBeforeStartingPouringWaterTask = pouringWaterTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBeforeStartingPouringWaterTask", 0.5f, "Wait before starting pouring water task");
-			timeToRotateWateringCan = pouringWaterTimings.CreateEntry<float>($"timing_{++entryIndex}_timeToRotateWateringCan", 0.8f, "Time it takes to rotate watering can");
-			timeToMoveWateringCan = pouringWaterTimings.CreateEntry<float>($"timing_{++entryIndex}_timeToMoveWateringCan", 0.8f, "Time it takes to move watering can to target");
+			CreateCategory(ref pouringWaterTimings, "AutomatedTasksMod", ++categoryIndex, "Pouring Water");
+			CreateTimingEntry(pouringWaterTimings, ref waitBeforeStartingPouringWaterTask, "timing", ++entryIndex, 0.5f, "Wait before starting pouring water task", TimingTypeEnum.WaitInitial);
+			CreateTimingEntry(pouringWaterTimings, ref timeToRotateWateringCan, "timing", ++entryIndex, 0.8f, "Time it takes to rotate watering can", TimingTypeEnum.Rotate);
+			CreateTimingEntry(pouringWaterTimings, ref timeToMoveWateringCan, "timing", ++entryIndex, 0.8f, "Time it takes to move watering can to target", TimingTypeEnum.Move);
 
 			entryIndex = new(0);
 
 			//Pouring fertilizer
-			pouringFertilizerTimings = MelonPreferences.CreateCategory($"AutomatedTasksMod_{++categoryIndex}_pouringFertilizerTimings", "Pouring Fertilizer");
-			waitBeforeStartingPouringFertilizerTask = pouringFertilizerTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBeforeStartingPouringFertilizerTask", 0.5f, "Wait before starting pouring fertilizer task");
-			timeToRotateFertilizer = pouringFertilizerTimings.CreateEntry<float>($"timing_{++entryIndex}_timeToRotateFertilizer", 1f, "Time it takes to rotate fertilizer");
-			timeToMoveFertilizer = pouringFertilizerTimings.CreateEntry<float>($"timing_{++entryIndex}_timeToMoveFertilizer", 0.1f, "Time it takes to move fertilizer along each line segment");
+			CreateCategory(ref pouringFertilizerTimings, "AutomatedTasksMod", ++categoryIndex, "Pouring Fertilizer");
+			CreateTimingEntry(pouringFertilizerTimings, ref waitBeforeStartingPouringFertilizerTask, "timing", ++entryIndex, 0.5f, "Wait before starting pouring fertilizer task", TimingTypeEnum.WaitInitial);
+			CreateTimingEntry(pouringFertilizerTimings, ref timeToRotateFertilizer, "timing", ++entryIndex, 1f, "Time it takes to rotate fertilizer", TimingTypeEnum.Rotate);
+			CreateTimingEntry(pouringFertilizerTimings, ref timeToMoveFertilizer, "timing", ++entryIndex, 0.1f, "Time it takes to move fertilizer along each line segment", TimingTypeEnum.Move);
 
 			entryIndex = new(0);
 
 			//Harvesting
-			harvestingTimings = MelonPreferences.CreateCategory($"AutomatedTasksMod_{++categoryIndex}_harvestingTimings", "Harvesting");
-			waitBeforeStartingHarvestingTask = harvestingTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBeforeStartingHarvestingTask", 0.5f, "Wait before starting harvesting task");
-			waitBetweenHarvestingPieces = harvestingTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBetweenHarvestingPieces", 0.5f, "Wait between harvesting each plant piece with non-electric trimmers");
-			waitBetweenHarvestingPiecesElectric = harvestingTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBetweenHarvestingPiecesElectric", 0.25f, "Wait between harvesting each plant piece with electric trimmers");
+			CreateCategory(ref harvestingTimings, "AutomatedTasksMod", ++categoryIndex, "Harvesting");
+			CreateTimingEntry(harvestingTimings, ref waitBeforeStartingHarvestingTask, "timing", ++entryIndex, 0.5f, "Wait before starting harvesting task", TimingTypeEnum.WaitInitial);
+			CreateTimingEntry(harvestingTimings, ref waitBetweenHarvestingPieces, "timing", ++entryIndex, 0.5f, "Wait between harvesting each plant piece with non-electric trimmers", TimingTypeEnum.WaitBetween);
+			CreateTimingEntry(harvestingTimings, ref waitBetweenHarvestingPiecesElectric, "timing", ++entryIndex, 0.25f, "Wait between harvesting each plant piece with electric trimmers", TimingTypeEnum.WaitBetween);
 
 			entryIndex = new(0);
 
 			//Sink
-			sinkTimings = MelonPreferences.CreateCategory($"AutomatedTasksMod_{++categoryIndex}_sinkTimings", "Sink");
-			waitBeforeStartingSinkTask = sinkTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBeforeStartingSinkTask", 0.5f, "Wait before starting sink task");
+			CreateCategory(ref sinkTimings, "AutomatedTasksMod", ++categoryIndex, "Sink");
+			CreateTimingEntry(sinkTimings, ref waitBeforeStartingSinkTask, "timing", ++entryIndex, 0.5f, "Wait before starting sink task", TimingTypeEnum.WaitInitial);
 
 			entryIndex = new(0);
 
 			//Packaging station
-			packagingStationTimings = MelonPreferences.CreateCategory($"AutomatedTasksMod_{++categoryIndex}_packagingStationTimings", "Packaging Station");
-			waitBeforeStartingPackagingTask = packagingStationTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBeforeStartingPackagingTask", 0.5f, "Wait before starting packaging station task");
-			timeToMoveProductToPackaging = packagingStationTimings.CreateEntry<float>($"timing_{++entryIndex}_timeToMoveProductToPackaging", 0.5f, "Time it takes to move product to packaging");
-			waitBeforeMovingPackagingToHatch = packagingStationTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBeforeMovingPackagingToHatch", 0.2f, "Wait before moving packaging to hatch");
-			timeToMovePackagingToHatch = packagingStationTimings.CreateEntry<float>($"timing_{++entryIndex}_timeToMovePackagingToHatch", 0.3f, "Time it takes to move packaging to hatch");
-			waitAfterMovingPackagingToHatch = packagingStationTimings.CreateEntry<float>($"timing_{++entryIndex}_waitAfterMovingPackagingToHatch", 0.8f, "Wait after moving packaging to hatch");
+			CreateCategory(ref packagingStationTimings, "AutomatedTasksMod", ++categoryIndex, "Packaging Station");
+			CreateTimingEntry(packagingStationTimings, ref waitBeforeStartingPackagingTask, "timing", ++entryIndex, 0.5f, "Wait before starting packaging station task", TimingTypeEnum.WaitInitial);
+			CreateTimingEntry(packagingStationTimings, ref timeToMoveProductToPackaging, "timing", ++entryIndex, 0.5f, "Time it takes to move product to packaging", TimingTypeEnum.Move);
+			CreateTimingEntry(packagingStationTimings, ref waitBeforeMovingPackagingToHatch, "timing", ++entryIndex, 0.2f, "Wait before moving packaging to hatch", TimingTypeEnum.WaitBefore);
+			CreateTimingEntry(packagingStationTimings, ref timeToMovePackagingToHatch, "timing", ++entryIndex, 0.3f, "Time it takes to move packaging to hatch", TimingTypeEnum.Move);
+			CreateTimingEntry(packagingStationTimings, ref waitBetweenMovingPackagingToHatch, "timing", ++entryIndex, 0.8f, "Wait between moving packaging to hatch", TimingTypeEnum.WaitBetween);
 
 			entryIndex = new(0);
 
 			//Packaging station Mk2
-			packagingStationMk2Timings = MelonPreferences.CreateCategory($"AutomatedTasksMod_{++categoryIndex}_packagingStationMk2Timings", "Packaging Station Mk2");
-			waitBeforeStartingPackagingMk2Task = packagingStationMk2Timings.CreateEntry<float>($"timing_{++entryIndex}_waitBeforeStartingPackagingMk2Task", 0.5f, "Wait before starting packaging station Mk2 task");
+			CreateCategory(ref packagingStationMk2Timings, "AutomatedTasksMod", ++categoryIndex, "Packaging Station Mk2");
+			CreateTimingEntry(packagingStationMk2Timings, ref waitBeforeStartingPackagingMk2Task, "timing", ++entryIndex, 0.5f, "Wait before starting packaging station Mk2 task", TimingTypeEnum.WaitInitial);
 
 			entryIndex = new(0);
 
 			//Brick press
-			brickPressTimings = MelonPreferences.CreateCategory($"AutomatedTasksMod_{++categoryIndex}_brickPressTimings", "Brick Press");
-			waitBeforeStartingBrickPressTask = brickPressTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBeforeStartingBrickPressTask", 0.5f, "Wait before starting brick press task");
-			timeToMoveProductsToMoldUp = brickPressTimings.CreateEntry<float>($"timing_{++entryIndex}_timeToMoveProductsToMoldUp", 1f, "Time it takes to move products to mold (up portion)");
-			timeToMoveProductsToMoldRight = brickPressTimings.CreateEntry<float>($"timing_{++entryIndex}_timeToMoveProductsToMoldRight", 1f, "Time it takes to move products to mold (right portion)");
-			waitBeforePullingDownHandle = brickPressTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBeforePullingDownHandle", 1f, "Wait before pulling down handle");
-			timeToPullDownHandle = brickPressTimings.CreateEntry<float>($"timing_{++entryIndex}_timeToPullDownHandle", 1f, "Time it takes to pull down handle");
+			CreateCategory(ref brickPressTimings, "AutomatedTasksMod", ++categoryIndex, "Brick Press");
+			CreateTimingEntry(brickPressTimings, ref waitBeforeStartingBrickPressTask, "timing", ++entryIndex, 0.5f, "Wait before starting brick press task", TimingTypeEnum.WaitInitial);
+			CreateTimingEntry(brickPressTimings, ref timeToMoveProductsToMoldUp, "timing", ++entryIndex, 1f, "Time it takes to move products to mold (up portion)", TimingTypeEnum.Move);
+			CreateTimingEntry(brickPressTimings, ref timeToMoveProductsToMoldRight, "timing", ++entryIndex, 1f, "Time it takes to move products to mold (right portion)", TimingTypeEnum.Move);
+			CreateTimingEntry(brickPressTimings, ref waitBeforePullingDownHandle, "timing", ++entryIndex, 0.2f, "Wait before pulling down handle", TimingTypeEnum.WaitBefore);
+			CreateTimingEntry(brickPressTimings, ref timeToPullDownHandle, "timing", ++entryIndex, 1f, "Time it takes to pull down handle", TimingTypeEnum.ChangeValue);
 
 			entryIndex = new(0);
 
 			//Mixing station
-			mixingStationTimings = MelonPreferences.CreateCategory($"AutomatedTasksMod_{++categoryIndex}_mixingStationTimings", "Mixing Station");
-			waitBeforeStartingMixingStationTask = mixingStationTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBeforeStartingMixingStationTask", 0.5f, "Wait before starting mixing station task");
-			timeToMoveProductToMixer = mixingStationTimings.CreateEntry<float>($"timing_{++entryIndex}_timeToMoveProductToMixer", 0.5f, "Time it takes to move product to mixer");
-			waitBetweenMovingItemsToMixer = mixingStationTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBetweenMovingItemsToMixer", 0.3f, "Wait between moving each item to mixer");
-			timeToMovePourableToMixer = mixingStationTimings.CreateEntry<float>($"timing_{++entryIndex}_timeToMovePourableToMixer", 0.8f, "Time it takes to move pourable to mixer");
-			timeToRotatePourableToMixer = mixingStationTimings.CreateEntry<float>($"timing_{++entryIndex}_timeToRotatePourableToMixer", 2f, "Time it takes to rotate pourable");
-			timeToRotateAndMovePourableFromMixerBack = mixingStationTimings.CreateEntry<float>($"timing_{++entryIndex}_timeToRotateAndMovePourableFromMixerBack", 0.8f, "Time it takes to move and rotate pourable back");
-			waitBeforePressingMixerStartButton = mixingStationTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBeforePressingMixerStartButton", 0.5f, "Wait before pressing start button");
+			CreateCategory(ref mixingStationTimings, "AutomatedTasksMod", ++categoryIndex, "Mixing Station");
+			CreateTimingEntry(mixingStationTimings, ref waitBeforeStartingMixingStationTask, "timing", ++entryIndex, 0.5f, "Wait before starting mixing station task", TimingTypeEnum.WaitInitial);
+			CreateTimingEntry(mixingStationTimings, ref timeToMoveProductToMixer, "timing", ++entryIndex, 0.5f, "Time it takes to move product to mixer", TimingTypeEnum.Move);
+			CreateTimingEntry(mixingStationTimings, ref waitBetweenMovingItemsToMixer, "timing", ++entryIndex, 0.3f, "Wait between moving each item to mixer", TimingTypeEnum.WaitBetween);
+			CreateTimingEntry(mixingStationTimings, ref timeToMovePourableToMixer, "timing", ++entryIndex, 0.8f, "Time it takes to move pourable to mixer", TimingTypeEnum.Move);
+			CreateTimingEntry(mixingStationTimings, ref timeToRotatePourableToMixer, "timing", ++entryIndex, 2f, "Time it takes to rotate pourable", TimingTypeEnum.Rotate);
+			CreateTimingEntry(mixingStationTimings, ref timeToRotateAndMovePourableFromMixerBack, "timing", ++entryIndex, 0.8f, "Time it takes to move and rotate pourable back", TimingTypeEnum.MoveRotateBack);
+			CreateTimingEntry(mixingStationTimings, ref waitBeforePressingMixerStartButton, "timing", ++entryIndex, 0.5f, "Wait before pressing start button", TimingTypeEnum.WaitBefore);
 
 			entryIndex = new(0);
 
 			//Chemistry station
-			chemistryStationTimings = MelonPreferences.CreateCategory($"AutomatedTasksMod_{++categoryIndex}_chemistryStationTimings", "Chemistry Station");
-			waitBeforeStartingChemistryStationTask = chemistryStationTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBeforeStartingChemistryStationTask", 0.5f, "Wait before starting chemistry station task");
-			timeToMoveProductToBeaker = chemistryStationTimings.CreateEntry<float>($"timing_{++entryIndex}_timeToMoveProductToBeaker", 0.5f, "Time it takes to move product to beaker");
-			waitBetweenMovingProductsToBeaker = chemistryStationTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBetweenMovingProductsToBeaker", 0.3f, "Wait between moving each product to beaker");
-			timeToMovePourableToBeaker = chemistryStationTimings.CreateEntry<float>($"timing_{++entryIndex}_timeToMovePourableToBeaker", 0.8f, "Time it takes to move pourable to beaker");
-			timeToRotatePourableToBeaker = chemistryStationTimings.CreateEntry<float>($"timing_{++entryIndex}_timeToRotatePourableToBeaker", 1.5f, "Time it takes to rotate pourable");
-			timeToRotateAndMovePourableFromBeakerBack = chemistryStationTimings.CreateEntry<float>($"timing_{++entryIndex}_timeToRotateAndMovePourableFromBeakerBack", 0.8f, "Time it takes to move and rotate pourable back");
-			waitBetweenMovingPourablesToBeaker = chemistryStationTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBetweenMovingPourablesToBeaker", 0.3f, "Wait between moving each pourable to beaker");
-			timeToRotateStirRod = chemistryStationTimings.CreateEntry<float>($"timing_{++entryIndex}_timeToRotateStirRod", 0.1f, "Time it takes to rotate sir rod (only effects visuals)");
-			waitBeforeMovingLabStandDown = chemistryStationTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBeforeMovingLabStandDown", 0.5f, "Wait before moving lab stand down");
-			timeToMoveLabStandDown = chemistryStationTimings.CreateEntry<float>($"timing_{++entryIndex}_timeToMoveLabStandDown", 0.5f, "Time it takes to move lab stand down");
-			waitBeforeMovingBeakerToFunnel = chemistryStationTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBeforeMovingBeakerToFunnel", 0.5f, "Wait before moving beaker to funnel");
-			timeToMoveBeakerToFunnel = chemistryStationTimings.CreateEntry<float>($"timing_{++entryIndex}_timeToMoveBeakerToFunnel", 0.8f, "Time it takes to move beaker to funnel");
-			timeToRotateBeakerToFunnel = chemistryStationTimings.CreateEntry<float>($"timing_{++entryIndex}_timeToRotateBeakerToFunnel", 3f, "Time it takes to rotate beaker");
-			waitBeforeMovingLabStandUp = chemistryStationTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBeforeMovingLabStandUp", 0.5f, "Wait before moving lab stand up");
-			timeToMoveLabStandUp = chemistryStationTimings.CreateEntry<float>($"timing_{++entryIndex}_timeToMoveLabStandUp", 0.5f, "Time it takes to move lab stand up");
-			waitBeforeHandlingBurner = chemistryStationTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBeforeHandlingBurner", 0.5f, "Wait before handling burner");
+			CreateCategory(ref chemistryStationTimings, "AutomatedTasksMod", ++categoryIndex, "Chemistry Station");
+			CreateTimingEntry(chemistryStationTimings, ref waitBeforeStartingChemistryStationTask, "timing", ++entryIndex, 0.5f, "Wait before starting chemistry station task", TimingTypeEnum.WaitInitial);
+			CreateTimingEntry(chemistryStationTimings, ref timeToMoveProductToBeaker, "timing", ++entryIndex, 0.5f, "Time it takes to move product to beaker", TimingTypeEnum.Move);
+			CreateTimingEntry(chemistryStationTimings, ref waitBetweenMovingProductsToBeaker, "timing", ++entryIndex, 0.3f, "Wait between moving each product to beaker", TimingTypeEnum.WaitBetween);
+			CreateTimingEntry(chemistryStationTimings, ref timeToMovePourableToBeaker, "timing", ++entryIndex, 0.8f, "Time it takes to move pourable to beaker", TimingTypeEnum.Move);
+			CreateTimingEntry(chemistryStationTimings, ref timeToRotatePourableToBeaker, "timing", ++entryIndex, 1.5f, "Time it takes to rotate pourable", TimingTypeEnum.Rotate);
+			CreateTimingEntry(chemistryStationTimings, ref timeToRotateAndMovePourableFromBeakerBack, "timing", ++entryIndex, 0.8f, "Time it takes to move and rotate pourable back", TimingTypeEnum.MoveRotateBack);
+			CreateTimingEntry(chemistryStationTimings, ref waitBetweenMovingPourablesToBeaker, "timing", ++entryIndex, 0.3f, "Wait between moving each pourable to beaker", TimingTypeEnum.WaitBetween);
+			CreateTimingEntry(chemistryStationTimings, ref timeToRotateStirRod, "timing", ++entryIndex, 0.1f, "Time it takes to rotate sir rod (only effects visuals)", TimingTypeEnum.Rotate);
+			CreateTimingEntry(chemistryStationTimings, ref waitBeforeMovingLabStandDown, "timing", ++entryIndex, 0.5f, "Wait before moving lab stand down", TimingTypeEnum.WaitBefore);
+			CreateTimingEntry(chemistryStationTimings, ref timeToMoveLabStandDown, "timing", ++entryIndex, 0.5f, "Time it takes to move lab stand down", TimingTypeEnum.ChangeValue);
+			CreateTimingEntry(chemistryStationTimings, ref waitBeforeMovingBeakerToFunnel, "timing", ++entryIndex, 0.5f, "Wait before moving beaker to funnel", TimingTypeEnum.WaitBefore);
+			CreateTimingEntry(chemistryStationTimings, ref timeToMoveBeakerToFunnel, "timing", ++entryIndex, 0.8f, "Time it takes to move beaker to funnel", TimingTypeEnum.Move);
+			CreateTimingEntry(chemistryStationTimings, ref timeToRotateBeakerToFunnel, "timing", ++entryIndex, 3f, "Time it takes to rotate beaker", TimingTypeEnum.Rotate);
+			CreateTimingEntry(chemistryStationTimings, ref waitBeforeMovingLabStandUp, "timing", ++entryIndex, 0.5f, "Wait before moving lab stand up", TimingTypeEnum.WaitBefore);
+			CreateTimingEntry(chemistryStationTimings, ref timeToMoveLabStandUp, "timing", ++entryIndex, 0.5f, "Time it takes to move lab stand up", TimingTypeEnum.ChangeValue);
+			CreateTimingEntry(chemistryStationTimings, ref waitBeforeHandlingBurner, "timing", ++entryIndex, 0.5f, "Wait before handling burner", TimingTypeEnum.WaitBefore);
 
 			entryIndex = new(0);
 
 			//Lab oven
-			labOvenTimings = MelonPreferences.CreateCategory($"AutomatedTasksMod_{++categoryIndex}_labOvenTimings", "Lab Oven");
-			waitBeforeStartingLabOvenTask = labOvenTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBeforeStartingLabOvenTask", 0.5f, "Wait before starting lab oven task");
-			timeToOpenLabOvenDoor = labOvenTimings.CreateEntry<float>($"timing_{++entryIndex}_timeToOpenLabOvenDoor", 0.5f, "Time it takes to open lab oven door");
-			timeToCloseLabOvenDoor = labOvenTimings.CreateEntry<float>($"timing_{++entryIndex}_timeToCloseLabOvenDoor", 0.5f, "Time it takes to close lab oven door");
-			waitBeforeMovingProductsToTray = labOvenTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBeforeMovingProductsToTray", 1f, "Wait before moving products to tray");
-			timeToMoveProductToTray = labOvenTimings.CreateEntry<float>($"timing_{++entryIndex}_timeToMoveProductToTray", 0.5f, "Time it takes to move product to tray");
-			waitBetweenMovingProductsToTray = labOvenTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBetweenMovingProductsToTray", 0.3f, "Wait between moving each product to tray");
-			waitBeforeClosingLabOvenDoorCocaine = labOvenTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBeforeClosingLabOvenDoorCocaine", 0.5f, "Wait before closing lab oven door when making cocaine");
-			waitBeforePressingLabOvenStartButton = labOvenTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBeforePressingLabOvenStartButton", 0.5f, "Wait before pressing start button");
+			CreateCategory(ref labOvenTimings, "AutomatedTasksMod", ++categoryIndex, "Lab Oven");
+			CreateTimingEntry(labOvenTimings, ref waitBeforeStartingLabOvenTask, "timing", ++entryIndex, 0.5f, "Wait before starting lab oven task", TimingTypeEnum.WaitInitial);
+			CreateTimingEntry(labOvenTimings, ref timeToOpenLabOvenDoor, "timing", ++entryIndex, 0.5f, "Time it takes to open lab oven door", TimingTypeEnum.ChangeValue);
+			CreateTimingEntry(labOvenTimings, ref timeToCloseLabOvenDoor, "timing", ++entryIndex, 0.5f, "Time it takes to close lab oven door", TimingTypeEnum.ChangeValue);
+			CreateTimingEntry(labOvenTimings, ref waitBeforeMovingProductsToTray, "timing", ++entryIndex, 1f, "Wait before moving products to tray", TimingTypeEnum.WaitBefore);
+			CreateTimingEntry(labOvenTimings, ref timeToMoveProductToTray, "timing", ++entryIndex, 0.5f, "Time it takes to move product to tray", TimingTypeEnum.Move);
+			CreateTimingEntry(labOvenTimings, ref waitBetweenMovingProductsToTray, "timing", ++entryIndex, 0.3f, "Wait between moving each product to tray", TimingTypeEnum.WaitBetween);
+			CreateTimingEntry(labOvenTimings, ref waitBeforeClosingLabOvenDoorCocaine, "timing", ++entryIndex, 0.5f, "Wait before closing lab oven door when making cocaine", TimingTypeEnum.WaitBefore);
+			CreateTimingEntry(labOvenTimings, ref waitBeforePressingLabOvenStartButton, "timing", ++entryIndex, 0.5f, "Wait before pressing start button", TimingTypeEnum.WaitBefore);
+			CreateTimingEntry(labOvenTimings, ref waitBeforeMovingHammerOverTray, "timing", ++entryIndex, 0.5f, "Wait before moving hammer over tray", TimingTypeEnum.WaitBefore);
+			CreateTimingEntry(labOvenTimings, ref timeToMoveHammerOverTray, "timing", ++entryIndex, 0.5f, "Time it takes to move hammer over tray", TimingTypeEnum.Move);
 
 			entryIndex = new(0);
 
 			//Cauldron
-			cauldronTimings = MelonPreferences.CreateCategory($"AutomatedTasksMod_{++categoryIndex}_cauldronTimings", "Cauldron");
-			waitBeforeStartingCauldronTask = cauldronTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBeforeStartingCauldronTask", 0.5f, "Wait before starting cauldron task");
-			timeToMoveGasolineToPot = cauldronTimings.CreateEntry<float>($"timing_{++entryIndex}_timeToMoveGasolineToPot", 1f, "Time it takes to move gasoline to pot");
-			timeToRotateGasolineToPot = cauldronTimings.CreateEntry<float>($"timing_{++entryIndex}_timeToRotateGasolineToPot", 2f, "Time it takes to rotate gasoline");
-			timeToRotateAndMoveGasolineFromPotBack = cauldronTimings.CreateEntry<float>($"timing_{++entryIndex}_timeToRotateAndMoveGasolineFromPotBack", 0.8f, "Time it takes to move and rotate gasoline back");
-			waitBeforeMovingProductsToPot = cauldronTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBeforeMovingProductsToPot", 0.5f, "Wait before moving products to pot");
-			timeToMoveProductToPot = cauldronTimings.CreateEntry<float>($"timing_{++entryIndex}_timeToMoveProductToPot", 0.5f, "Time it takes to move product to pot");
-			waitBetweenMovingProductsToPot = cauldronTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBetweenMovingProductsToPot", 0.3f, "Wait between moving each product to pot");
-			waitBeforePressingCauldronStartButton = cauldronTimings.CreateEntry<float>($"timing_{++entryIndex}_waitBeforePressingCauldronStartButton", 0.5f, "Wait before pressing start button");
+			CreateCategory(ref cauldronTimings, "AutomatedTasksMod", ++categoryIndex, "Cauldron");
+			CreateTimingEntry(cauldronTimings, ref waitBeforeStartingCauldronTask, "timing", ++entryIndex, 0.5f, "Wait before starting cauldron task", TimingTypeEnum.WaitInitial);
+			CreateTimingEntry(cauldronTimings, ref timeToMoveGasolineToPot, "timing", ++entryIndex, 1f, "Time it takes to move gasoline to pot", TimingTypeEnum.Move);
+			CreateTimingEntry(cauldronTimings, ref timeToRotateGasolineToPot, "timing", ++entryIndex, 2f, "Time it takes to rotate gasoline", TimingTypeEnum.Rotate);
+			CreateTimingEntry(cauldronTimings, ref timeToRotateAndMoveGasolineFromPotBack, "timing", ++entryIndex, 0.8f, "Time it takes to move and rotate gasoline back", TimingTypeEnum.MoveRotateBack);
+			CreateTimingEntry(cauldronTimings, ref waitBeforeMovingProductsToPot, "timing", ++entryIndex, 0.5f, "Wait before moving products to pot", TimingTypeEnum.WaitBefore);
+			CreateTimingEntry(cauldronTimings, ref timeToMoveProductToPot, "timing", ++entryIndex, 0.5f, "Time it takes to move product to pot", TimingTypeEnum.Move);
+			CreateTimingEntry(cauldronTimings, ref waitBetweenMovingProductsToPot, "timing", ++entryIndex, 0.3f, "Wait between moving each product to pot", TimingTypeEnum.WaitBetween);
+			CreateTimingEntry(cauldronTimings, ref waitBeforePressingCauldronStartButton, "timing", ++entryIndex, 0.5f, "Wait before pressing start button", TimingTypeEnum.WaitBefore);
+		}
+
+		private static void CreateCategory(ref MelonPreferences_Category category, string prefix, PrettyInt index, string displayName, [CallerArgumentExpression(nameof(category))] string categoryName = "") {
+			category = MelonPreferences.CreateCategory($"{prefix}_{index}_{categoryName}", displayName);
+		}
+
+		private static void CreateToggleEntry(MelonPreferences_Category category, ref MelonPreferences_Entry<bool> entry, string prefix, PrettyInt index, string displayName, [CallerArgumentExpression(nameof(entry))] string entryName = "") {
+			entry = category.CreateEntry($"{prefix}_{index}_{entryName}", true, displayName);
+		}
+
+		private static void CreateGenericEntry<T>(MelonPreferences_Category category, ref MelonPreferences_Entry<T> entry, string prefix, PrettyInt index, T defaultValue, string displayName, [CallerArgumentExpression(nameof(entry))] string entryName = "") {
+			entry = category.CreateEntry($"{prefix}_{index}_{entryName}", defaultValue, displayName);
+		}
+
+		private static void CreateTimingEntry(MelonPreferences_Category category, ref MelonPreferences_Entry<float> entry, string prefix, PrettyInt index, float defaultValue, string displayName, TimingTypeEnum timingType, [CallerArgumentExpression(nameof(entry))] string entryName = "") {
+			entry = category.CreateEntry($"{prefix}_{index}_{entryName}", defaultValue, displayName);
+			entry.Comment = timingType.ToString();
 		}
 
 		internal static float GetTiming(MelonPreferences_Entry<float> timingPref) {
+			float fastDefault = MathF.Min(timingPref.DefaultValue, 0.2f);
+			float fastestWait = 0;
+			float slowerTime = MathF.Min(timingPref.DefaultValue, 0.5f);
+
 			return timingsPreset.Value switch {
 				SpeedEnum.Custom_Values_Below => timingPref.Value,
 				SpeedEnum.Default_Values => timingPref.DefaultValue,
-				SpeedEnum.Fast => MathF.Min(timingPref.DefaultValue, 0.2f),
+				SpeedEnum.Fast => (Enum.TryParse(timingPref.Comment, out TimingTypeEnum timingType)
+					? timingType switch {
+						TimingTypeEnum.WaitInitial => fastDefault,
+						TimingTypeEnum.WaitBefore => fastestWait,
+						TimingTypeEnum.WaitBetween => fastestWait,
+						TimingTypeEnum.Move => fastDefault,
+						TimingTypeEnum.MoveRotate => slowerTime,
+						TimingTypeEnum.MoveRotateBack => slowerTime,
+						TimingTypeEnum.Rotate => slowerTime,
+						TimingTypeEnum.ChangeValue => slowerTime,
+						_ => fastDefault,
+					} : fastDefault),
 				SpeedEnum.Slow => timingPref.DefaultValue * 1.5f,
 				_ => timingPref.Value,
 			};

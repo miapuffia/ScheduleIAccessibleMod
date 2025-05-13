@@ -14,15 +14,17 @@ using UnityEngine;
 namespace AutomatedTasksMod {
 	[HarmonyPatch(typeof(MixingStationCanvas), "BeginButtonPressed")]
 	internal static class MixingStationCanvasPatch {
-		private static void Postfix(MixingStationCanvas __instance) {
-			if(Prefs.mixingStationToggle.Value) {
-				MelonCoroutines.Start(AutomateMixingStationCoroutine());
-			} else {
-				Melon<Mod>.Logger.Msg("Automate mixing station disabled in settings");
+		private static void Prefix(MixingStationCanvas __instance) {
+			if(!Utils.NullCheck(__instance.MixingStation) && __instance.MixingStation.TryCast<MixingStationMk2>() is null) {
+				if(Prefs.mixingStationToggle.Value) {
+					MelonCoroutines.Start(AutomateMixingStationCoroutine(__instance));
+				} else {
+					Melon<Mod>.Logger.Msg("Automate mixing station disabled in settings");
+				}
 			}
 		}
 
-		static System.Collections.IEnumerator AutomateMixingStationCoroutine() {
+		private static System.Collections.IEnumerator AutomateMixingStationCoroutine(MixingStationCanvas mixingStationCanvas) {
 			MixingStation mixingStation;
 			Transform product;
 			IngredientPiece productPiece;
@@ -31,7 +33,8 @@ namespace AutomatedTasksMod {
 			Vector3 moveBackToPosition;
 			Vector3 rotateToAngles;
 			bool stepComplete;
-			bool callbackError;
+			bool isInUse;
+			bool isError = false;
 			float time;
 
 			float _waitBeforeStartingMixingStationTask = Prefs.GetTiming(Prefs.waitBeforeStartingMixingStationTask);
@@ -44,26 +47,27 @@ namespace AutomatedTasksMod {
 
 			Melon<Mod>.Logger.Msg("Mixing station task started");
 
+			if(Utils.NullCheck([mixingStationCanvas, mixingStationCanvas?.MixingStation], "Can't find mixing station - probably exited task"))
+				yield break;
+
+			mixingStation = mixingStationCanvas.MixingStation;
+
 			yield return new WaitForSeconds(_waitBeforeStartingMixingStationTask);
-
-			mixingStation = GameObject.FindObjectsOfType<MixingStation>().FirstOrDefault(m => m.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? false);
-
-			if(Utils.NullCheck(mixingStation, "Can't find the mixing station the player is using"))
-				yield break;
-
-			if(!IsMixingStationInUse(mixingStation)) {
-				Melon<Mod>.Logger.Msg("Probably exited task");
-				yield break;
-			}
 
 			Melon<Mod>.Logger.Msg("Moving products");
 
-			for(int i = 0; i < mixingStation.ItemContainer.childCount; i++) {
-				if(Utils.NullCheck([mixingStation, mixingStation.ItemContainer, mixingStation.BowlFillable], "Can't find mixing station - probably exited task"))
-					yield break;
+			GetIsMixingStationInUse(mixingStation, mixingStationCanvas, out isInUse, ref isError);
 
-				if(!IsMixingStationInUse(mixingStation)) {
-					Melon<Mod>.Logger.Msg("Probably exited task");
+			if(isError || !isInUse) {
+				Melon<Mod>.Logger.Msg("Can't find mixing station - probably exited task");
+				yield break;
+			}
+
+			for(int i = 0; i < mixingStation.ItemContainer.childCount; i++) {
+				GetIsMixingStationInUse(mixingStation, mixingStationCanvas, out isInUse, ref isError);
+
+				if(isError || Utils.NullCheck([mixingStation.ItemContainer, mixingStation.BowlFillable]) || !isInUse) {
+					Melon<Mod>.Logger.Msg("Can't find mixing station components - probably exited task");
 					yield break;
 				}
 
@@ -76,16 +80,16 @@ namespace AutomatedTasksMod {
 				productBeaker = product.GetComponentInChildren<Beaker>();
 
 				if(!Utils.NullCheck(productPiece)) {
+					Melon<Mod>.Logger.Msg("Moving product to mixer");
+
 					moveToPosition = mixingStation.BowlFillable.transform.position;
 					moveToPosition.y += 0.3f;
 
-					Melon<Mod>.Logger.Msg("Moving product to mixer");
+					isError = false;
 
-					callbackError = false;
+					yield return Utils.SinusoidalLerpPositionCoroutine(productPiece.transform, moveToPosition, _timeToMoveProductToMixer, () => isError = true);
 
-					yield return Utils.SinusoidalLerpPositionCoroutine(productPiece.transform, moveToPosition, _timeToMoveProductToMixer, () => callbackError = true);
-
-					if(callbackError) {
+					if(isError) {
 						Melon<Mod>.Logger.Msg("Can't find product piece to move - probably exited task");
 						yield break;
 					}
@@ -97,11 +101,11 @@ namespace AutomatedTasksMod {
 					moveToPosition = productBeaker.transform.position.Between(mixingStation.BowlFillable.transform.position, 0.3f);
 					moveToPosition.y += 0.35f;
 
-					callbackError = false;
+					isError = false;
 
-					yield return Utils.SinusoidalLerpPositionCoroutine(productBeaker.transform, moveToPosition, _timeToMovePourableToMixer, () => callbackError = true);
+					yield return Utils.SinusoidalLerpPositionCoroutine(productBeaker.transform, moveToPosition, _timeToMovePourableToMixer, () => isError = true);
 
-					if(callbackError) {
+					if(isError) {
 						Melon<Mod>.Logger.Msg("Can't find beaker - probably exited task");
 						yield break;
 					}
@@ -111,9 +115,9 @@ namespace AutomatedTasksMod {
 					productBeaker.transform.localEulerAngles = Vector3.zero;
 					rotateToAngles = new Vector3(productBeaker.transform.localEulerAngles.x, productBeaker.transform.localEulerAngles.x, productBeaker.transform.localEulerAngles.y + 90);
 
-					yield return Utils.SinusoidalLerpPositionAndRotationCoroutine(productBeaker.transform, moveToPosition, rotateToAngles, _timeToRotatePourableToMixer, () => callbackError = true);
+					yield return Utils.SinusoidalLerpPositionAndRotationCoroutine(productBeaker.transform, moveToPosition, rotateToAngles, _timeToRotatePourableToMixer, () => isError = true);
 
-					if(callbackError) {
+					if(isError) {
 						Melon<Mod>.Logger.Msg("Can't find beaker to move and rotate - probably exited task");
 						yield break;
 					}
@@ -125,7 +129,7 @@ namespace AutomatedTasksMod {
 
 					//Up to 5 seconds
 					while(time < 5) {
-						if(Utils.NullCheck(productBeaker, "Can't find beaker - probably exited task"))
+						if(Utils.NullCheck([productBeaker, productBeaker?.Pourable], "Can't find beaker - probably exited task"))
 							yield break;
 
 						if(productBeaker.Pourable.LiquidLevel == 0) {
@@ -149,11 +153,11 @@ namespace AutomatedTasksMod {
 
 					Melon<Mod>.Logger.Msg("Moving beaker out of the way");
 
-					callbackError = false;
+					isError = false;
 
-					yield return Utils.SinusoidalLerpPositionAndRotationCoroutine(productBeaker.transform, moveBackToPosition, Vector3.zero, _timeToRotateAndMovePourableFromMixerBack, () => callbackError = true);
+					yield return Utils.SinusoidalLerpPositionAndRotationCoroutine(productBeaker.transform, moveBackToPosition, Vector3.zero, _timeToRotateAndMovePourableFromMixerBack, () => isError = true);
 
-					if(callbackError) {
+					if(isError) {
 						Melon<Mod>.Logger.Msg("Can't find beaker to move and rotate - probably exited task");
 						yield break;
 					}
@@ -165,25 +169,57 @@ namespace AutomatedTasksMod {
 				yield return new WaitForSeconds(_waitBetweenMovingItemsToMixer);
 			}
 
-			yield return new WaitForSeconds(_waitBeforePressingMixerStartButton);
+			Melon<Mod>.Logger.Msg("Waiting for mixing to be startable");
 
-			if(Utils.NullCheck([mixingStation, mixingStation.StartButton], "Can't find mixing station start button - probably exited task"))
-				yield break;
+			stepComplete = false;
+			time = 0;
 
-			if(!IsMixingStationInUse(mixingStation)) {
-				Melon<Mod>.Logger.Msg("Probably exited task");
+			//Up to 3 seconds
+			while(time < 3) {
+				if(Utils.NullCheck([mixingStation, mixingStation?.StartButton], "Can't find mixing station start button - probably exited task"))
+					yield break;
+
+				if(mixingStation.StartButton.ClickableEnabled) {
+					Melon<Mod>.Logger.Msg("Mixing is startable");
+					stepComplete = true;
+					break;
+				}
+
+				time += Time.deltaTime;
+
+				yield return null;
+			}
+
+			if(!stepComplete) {
+				Melon<Mod>.Logger.Msg("Mixing station didn't become startable after 3 seconds");
 				yield break;
 			}
 
+			yield return new WaitForSeconds(_waitBeforePressingMixerStartButton);
+
 			Melon<Mod>.Logger.Msg("Pressing start button");
+
+			GetIsMixingStationInUse(mixingStation, mixingStationCanvas, out isInUse, ref isError);
+
+			if(isError || Utils.NullCheck(mixingStation.StartButton) || !isInUse) {
+				Melon<Mod>.Logger.Msg("Can't find mixing station start button - probably exited task");
+				yield break;
+			}
 
 			mixingStation.StartButton.StartClick(new RaycastHit());
 
 			Melon<Mod>.Logger.Msg("Done mixing");
 		}
 
-		private static bool IsMixingStationInUse(MixingStation mixingStation) {
-			return (mixingStation.PlayerUserObject?.GetComponent<Player>().IsLocalPlayer ?? false) && (!GameObject.FindObjectOfType<MixingStationCanvas>()?.Canvas?.enabled ?? false);
+		private static void GetIsMixingStationInUse(MixingStation mixingStation, MixingStationCanvas mixingStationCanvas, out bool isInUse, ref bool isError) {
+			if(Utils.NullCheck([mixingStation, mixingStation?.PlayerUserObject, mixingStationCanvas, mixingStationCanvas?.Canvas])) {
+				isError = true;
+				isInUse = false;
+				return;
+			}
+
+			isError = false;
+			isInUse = (mixingStation.PlayerUserObject.GetComponent<Player>()?.IsLocalPlayer ?? false) && !mixingStationCanvas.Canvas.enabled;
 		}
 	}
 }
